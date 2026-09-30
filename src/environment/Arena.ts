@@ -9,6 +9,8 @@ export class Arena {
   public readonly group: THREE.Group;
   public readonly obstacles: ArenaObstacle[] = [];
   private colliders: THREE.Box3[] | null = null;
+  private groundMesh!: THREE.Mesh;
+  private raycastObstacleList: THREE.Mesh[] | null = null;
 
   constructor() {
     this.group = new THREE.Group();
@@ -29,6 +31,17 @@ export class Arena {
       }
     }
     return this.colliders;
+  }
+
+  /**
+   * Returns all physical meshes (including walls, obstacles, and ground)
+   * for bullet raycast line-of-sight and penetration testing.
+   */
+  public getRaycastObstacles(): THREE.Mesh[] {
+    if (!this.raycastObstacleList) {
+      this.raycastObstacleList = [this.groundMesh, ...this.obstacles.map((o) => o.mesh)];
+    }
+    return this.raycastObstacleList;
   }
 
   private buildArena(): void {
@@ -86,6 +99,7 @@ export class Arena {
     const groundMesh = new THREE.Mesh(groundGeo, groundMaterial);
     groundMesh.position.set(0, -0.2, 0);
     groundMesh.receiveShadow = true;
+    this.groundMesh = groundMesh;
     this.group.add(groundMesh);
 
     // Grid markings / lane stripes on ground

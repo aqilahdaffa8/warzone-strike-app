@@ -19,6 +19,7 @@ export class PlayerController {
   private eyeHeight: number;
   private radius: number;
   private sensitivity: number;
+  private sensitivityMultiplier: number = 1.0;
 
   // Spatial state
   public readonly position: THREE.Vector3;
@@ -88,6 +89,14 @@ export class PlayerController {
 
   public setSensitivity(value: number): void {
     this.sensitivity = Math.max(0.0001, Math.min(0.01, value));
+  }
+
+  public getSensitivityMultiplier(): number {
+    return this.sensitivityMultiplier;
+  }
+
+  public setSensitivityMultiplier(value: number): void {
+    this.sensitivityMultiplier = Math.max(0.01, Math.min(2.0, value));
   }
 
   public resetInputs(): void {
@@ -163,8 +172,8 @@ export class PlayerController {
   private onMouseMove = (e: MouseEvent): void => {
     if (!this.isEnabled) return;
 
-    this.yaw -= e.movementX * this.sensitivity;
-    this.pitch -= e.movementY * this.sensitivity;
+    this.yaw -= e.movementX * this.sensitivity * this.sensitivityMultiplier;
+    this.pitch -= e.movementY * this.sensitivity * this.sensitivityMultiplier;
 
     // Clamp vertical look angle (-85 deg to +85 deg)
     const maxPitch = Math.PI / 2 - 0.05;

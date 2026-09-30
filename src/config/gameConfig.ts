@@ -10,8 +10,26 @@ export interface PlayerConfig {
   startingPosition: { x: number; y: number; z: number };
 }
 
+export interface SniperConfig {
+  bodyDamage: number;
+  headshotMultiplier: number;
+  fireInterval: number;
+  magazineCapacity: number;
+  reserveAmmo: number;
+  reloadDuration: number;
+  scopedFov: number;
+  defaultFov: number;
+}
+
+export interface TargetDummyConfig {
+  maxHp: number;
+  respawnTime: number;
+}
+
 export interface GameConfig {
   player: PlayerConfig;
+  sniper: SniperConfig;
+  dummy: TargetDummyConfig;
 }
 
 /**
@@ -29,5 +47,19 @@ export const GAME_CONFIG: GameConfig = {
     radius: 0.4, // AABB half-extents in XZ plane (0.8m x 0.8m footprint)
     mouseSensitivity: 0.0022, // Default radians per pixel
     startingPosition: { x: 0, y: 0, z: 12 }, // Safe open spot facing arena center
+  },
+  sniper: {
+    bodyDamage: 80,
+    headshotMultiplier: 2.5,
+    fireInterval: 1.5, // 1.5s
+    magazineCapacity: 5,
+    reserveAmmo: 30,
+    reloadDuration: 2.5, // 2.5s
+    scopedFov: 20, // 20 degrees scope
+    defaultFov: 75, // 75 degrees normal
+  },
+  dummy: {
+    maxHp: 100,
+    respawnTime: 2.0, // 2.0s respawn after knockdown
   },
 };

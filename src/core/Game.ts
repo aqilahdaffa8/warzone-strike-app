@@ -6,6 +6,8 @@ import { PlayerHealth } from '../player/PlayerHealth';
 import { PlayerController } from '../player/PlayerController';
 import { HUD } from '../ui/HUD';
 import { PauseMenu } from '../ui/PauseMenu';
+import { Sniper } from '../weapons/Sniper';
+import { TargetDummy } from '../environment/TargetDummy';
 
 export class Game {
   private readonly canvas: HTMLCanvasElement;
@@ -17,6 +19,8 @@ export class Game {
   private readonly arena: Arena;
   private readonly playerHealth: PlayerHealth;
   private readonly playerController: PlayerController;
+  private readonly sniper: Sniper;
+  private readonly targetDummies: TargetDummy[] = [];
   private readonly hud: HUD;
   private readonly pauseMenu: PauseMenu;
 
@@ -25,6 +29,10 @@ export class Game {
 
   private readonly startOverlay: HTMLElement | null;
   private readonly startBtn: HTMLButtonElement | null;
+
+  // Track right-click interaction for hold-to-aim vs toggle-to-aim
+  private rightMouseDownTime: number = 0;
+  private wasScopedOnMouseDown: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -37,7 +45,7 @@ export class Game {
 
     // 2. Camera setup (first-person perspective)
     const aspect = window.innerWidth / window.innerHeight;
-    this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 500);
+    this.camera = new THREE.PerspectiveCamera(GAME_CONFIG.sniper.defaultFov, aspect, 0.1, 500);
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
@@ -67,8 +75,27 @@ export class Game {
       GAME_CONFIG.player
     );
 
-    // 7. UI Systems
-    this.hud = new HUD(this.playerHealth);
+    // 7. Weapon Systems (Sniper)
+    this.sniper = new Sniper(GAME_CONFIG.sniper, this.camera, this.scene);
+
+    // 8. Environment Target Dummies (Placed for comprehensive Phase 3 testing)
+    this.spawnTargetDummies();
+
+    // 9. UI Systems
+    this.hud = new HUD(this.playerHealth, {
+      onReloadRequested: () => {
+        if (this.state === 'PLAYING') {
+          this.sniper.reload();
+        }
+      },
+      onResetAmmoRequested: () => {
+        this.sniper.resetAmmo();
+      },
+      onResetDummiesRequested: () => {
+        this.targetDummies.forEach((d) => d.reset());
+      },
+    });
+
     this.pauseMenu = new PauseMenu(this.playerController, this.playerHealth);
     this.pauseMenu.setOnResume(() => {
       this.canvas.requestPointerLock();
@@ -77,7 +104,7 @@ export class Game {
     this.startOverlay = document.querySelector<HTMLElement>('#start-overlay');
     this.startBtn = document.querySelector<HTMLButtonElement>('#btn-start-game');
 
-    // 8. Event listeners
+    // 10. Event listeners
     this.setupEventListeners();
   }
 
@@ -106,13 +133,65 @@ export class Game {
     this.scene.add(sunLight);
   }
 
+  private spawnTargetDummies(): void {
+    // Dummy 1: Open field target (distance ~14m from start position (0, 0, 12))
+    // Ideal for testing basic fire, headshot vs body damage, and fire intervals
+    const dummy1 = new TargetDummy(
+      'dummy-open-midrange',
+      new THREE.Vector3(-4, 0, -2),
+      0,
+      GAME_CONFIG.dummy
+    );
+    this.targetDummies.push(dummy1);
+    this.scene.add(dummy1.group);
+
+    // Dummy 2: Long-distance target (distance ~34m from start position)
+    // Ideal for testing 20° FOV sniper scope and long-range accuracy
+    const dummy2 = new TargetDummy(
+      'dummy-long-range',
+      new THREE.Vector3(5, 0, -22),
+      -Math.PI / 8,
+      GAME_CONFIG.dummy
+    );
+    this.targetDummies.push(dummy2);
+    this.scene.add(dummy2.group);
+
+    // Dummy 3: Placed directly behind shipping container-6 (at 0, 1.3, -6)
+    // Looking from starting position (0, 0, 12) towards (0, 0, -10), container-6 completely blocks line of sight.
+    // Shooting at it tests that bullets stop at the container and DO NOT penetrate walls.
+    const dummy3 = new TargetDummy(
+      'dummy-behind-container',
+      new THREE.Vector3(0, 0, -10),
+      0,
+      GAME_CONFIG.dummy
+    );
+    this.targetDummies.push(dummy3);
+    this.scene.add(dummy3.group);
+
+    // Dummy 4: Placed behind concrete barrier-2 (at -8, 0.5, 0)
+    // Torso is covered by the barrier, but head is exposed above the barrier
+    const dummy4 = new TargetDummy(
+      'dummy-behind-barrier',
+      new THREE.Vector3(-8, 0, 3),
+      Math.PI,
+      GAME_CONFIG.dummy
+    );
+    this.targetDummies.push(dummy4);
+    this.scene.add(dummy4.group);
+  }
+
   private setupEventListeners(): void {
     window.addEventListener('resize', this.onResize);
     document.addEventListener('pointerlockchange', this.onPointerLockChange);
 
-    // Prevent browser context menu on right click
+    // Prevent browser context menu on right click to allow sniper scoping
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Mouse button events for Weapon Fire (left) and Scope (right)
+    window.addEventListener('mousedown', this.onMouseDown);
+    window.addEventListener('mouseup', this.onMouseUp);
+    window.addEventListener('keydown', this.onKeyDown);
 
     if (this.startBtn) {
       this.startBtn.addEventListener('click', (e) => {
@@ -133,6 +212,46 @@ export class Game {
       }
     });
   }
+
+  private onMouseDown = (e: MouseEvent): void => {
+    if (this.state !== 'PLAYING' || document.pointerLockElement !== this.canvas) {
+      return;
+    }
+
+    // Left click: Fire sniper
+    if (e.button === 0) {
+      this.sniper.fire(this.arena.getRaycastObstacles(), this.targetDummies);
+    }
+
+    // Right click: Scope
+    if (e.button === 2) {
+      this.rightMouseDownTime = performance.now();
+      this.wasScopedOnMouseDown = this.sniper.getIsScoped();
+      this.sniper.setScoped(true);
+    }
+  };
+
+  private onMouseUp = (e: MouseEvent): void => {
+    if (this.state !== 'PLAYING') return;
+
+    if (e.button === 2) {
+      const holdDuration = performance.now() - this.rightMouseDownTime;
+      // If held for more than 250ms, release scopes out (hold-to-aim)
+      // If tapped and was already scoped, tap scopes out (toggle-to-aim)
+      if (holdDuration > 250 || this.wasScopedOnMouseDown) {
+        this.sniper.setScoped(false);
+      }
+    }
+  };
+
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (this.state !== 'PLAYING') return;
+
+    // R: Reload
+    if (e.code === 'KeyR') {
+      this.sniper.reload();
+    }
+  };
 
   private onPointerLockChange = (): void => {
     const isLocked = document.pointerLockElement === this.canvas;
@@ -159,6 +278,7 @@ export class Game {
       case 'PAUSED':
         this.pauseMenu.show();
         this.playerController.setEnabled(false);
+        this.sniper.setScoped(false); // Unscope when paused
         break;
 
       case 'MENU':
@@ -166,6 +286,7 @@ export class Game {
         this.pauseMenu.hide();
         this.hud.hide();
         this.playerController.setEnabled(false);
+        this.sniper.setScoped(false);
         break;
     }
   }
@@ -201,7 +322,25 @@ export class Game {
     const dt = Math.min(rawDelta, 0.05);
 
     if (this.state === 'PLAYING') {
+      // 1. Update Player Movement & Look
       this.playerController.update(dt);
+
+      // 2. Update Sniper (Fire timer, reload timer, FOV zoom interpolation, visuals)
+      this.sniper.update(dt, this.playerController);
+
+      // 3. Update Target Dummies (Billboarding health bars, damage popups, respawn timers)
+      for (let i = 0; i < this.targetDummies.length; i++) {
+        this.targetDummies[i].update(dt, this.camera.position);
+      }
+
+      // 4. Update HUD (Ammo, reload progress bar, scope overlay, stats)
+      this.hud.updateWeaponState(
+        this.sniper.getAmmo(),
+        this.sniper.getStats(),
+        this.sniper.getIsReloading(),
+        this.sniper.getReloadProgress(),
+        this.sniper.getIsScoped()
+      );
     }
 
     this.render();
@@ -216,7 +355,15 @@ export class Game {
     this.stop();
     window.removeEventListener('resize', this.onResize);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
+    window.removeEventListener('mousedown', this.onMouseDown);
+    window.removeEventListener('mouseup', this.onMouseUp);
+    window.removeEventListener('keydown', this.onKeyDown);
+
     this.playerController.dispose();
+    this.sniper.dispose();
+    for (const dummy of this.targetDummies) {
+      dummy.dispose();
+    }
     this.hud.dispose();
     this.renderer.dispose();
   }
