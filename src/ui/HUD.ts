@@ -1,10 +1,12 @@
 import { PlayerHealth } from '../player/PlayerHealth';
 import { WeaponStats } from '../weapons/Sniper';
+import { WeaponType } from '../weapons/Weapon';
 
 export interface HUDCallbacks {
   onReloadRequested?: () => void;
   onResetAmmoRequested?: () => void;
   onResetDummiesRequested?: () => void;
+  onSwitchWeaponRequested?: (type: WeaponType) => void;
 }
 
 export class HUD {
@@ -18,10 +20,17 @@ export class HUD {
   private readonly debugDamageBtn: HTMLButtonElement | null;
   private readonly debugResetBtn: HTMLButtonElement | null;
 
+  // Weapon Slots & Name
+  private readonly weaponNameText: HTMLElement | null;
+  private readonly slotSniper: HTMLElement | null;
+  private readonly slotKnife: HTMLElement | null;
+
   // Ammo & Reload
   private readonly ammoValueText: HTMLElement | null;
   private readonly reloadStatus: HTMLElement | null;
   private readonly reloadBarFill: HTMLElement | null;
+  private readonly cooldownStatus: HTMLElement | null;
+  private readonly cooldownBarFill: HTMLElement | null;
 
   // Stats
   private readonly statShotsFired: HTMLElement | null;
@@ -29,13 +38,16 @@ export class HUD {
   private readonly statHeadshots: HTMLElement | null;
   private readonly statAccuracy: HTMLElement | null;
 
-  // Debug Sniper Buttons
+  // Debug Buttons
+  private readonly debugSwitchSniperBtn: HTMLButtonElement | null;
+  private readonly debugSwitchKnifeBtn: HTMLButtonElement | null;
   private readonly debugReloadBtn: HTMLButtonElement | null;
   private readonly debugResetAmmoBtn: HTMLButtonElement | null;
   private readonly debugResetDummiesBtn: HTMLButtonElement | null;
 
   private unsubscribeHealth: (() => void) | null = null;
   private isCurrentlyScoped: boolean = false;
+  private activeWeapon: WeaponType = 'sniper';
 
   constructor(health: PlayerHealth, callbacks?: HUDCallbacks) {
     this.root = document.querySelector<HTMLElement>('#hud');
@@ -47,15 +59,23 @@ export class HUD {
     this.debugDamageBtn = document.querySelector<HTMLButtonElement>('#btn-debug-damage');
     this.debugResetBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset');
 
+    this.weaponNameText = document.querySelector<HTMLElement>('#hud-weapon-name');
+    this.slotSniper = document.querySelector<HTMLElement>('#slot-sniper');
+    this.slotKnife = document.querySelector<HTMLElement>('#slot-knife');
+
     this.ammoValueText = document.querySelector<HTMLElement>('#hud-ammo-val');
     this.reloadStatus = document.querySelector<HTMLElement>('#hud-reload-status');
     this.reloadBarFill = document.querySelector<HTMLElement>('#hud-reload-fill');
+    this.cooldownStatus = document.querySelector<HTMLElement>('#hud-cooldown-status');
+    this.cooldownBarFill = document.querySelector<HTMLElement>('#hud-cooldown-fill');
 
     this.statShotsFired = document.querySelector<HTMLElement>('#stat-shots-fired');
     this.statShotsHit = document.querySelector<HTMLElement>('#stat-shots-hit');
     this.statHeadshots = document.querySelector<HTMLElement>('#stat-headshots');
     this.statAccuracy = document.querySelector<HTMLElement>('#stat-accuracy');
 
+    this.debugSwitchSniperBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-sniper');
+    this.debugSwitchKnifeBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-knife');
     this.debugReloadBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reload');
     this.debugResetAmmoBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset-ammo');
     this.debugResetDummiesBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset-dummies');
@@ -79,6 +99,34 @@ export class HUD {
       this.debugResetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         health.reset();
+      });
+    }
+
+    if (this.slotSniper && callbacks?.onSwitchWeaponRequested) {
+      this.slotSniper.addEventListener('click', (e) => {
+        e.stopPropagation();
+        callbacks.onSwitchWeaponRequested!('sniper');
+      });
+    }
+
+    if (this.slotKnife && callbacks?.onSwitchWeaponRequested) {
+      this.slotKnife.addEventListener('click', (e) => {
+        e.stopPropagation();
+        callbacks.onSwitchWeaponRequested!('knife');
+      });
+    }
+
+    if (this.debugSwitchSniperBtn && callbacks?.onSwitchWeaponRequested) {
+      this.debugSwitchSniperBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        callbacks.onSwitchWeaponRequested!('sniper');
+      });
+    }
+
+    if (this.debugSwitchKnifeBtn && callbacks?.onSwitchWeaponRequested) {
+      this.debugSwitchKnifeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        callbacks.onSwitchWeaponRequested!('knife');
       });
     }
 
@@ -124,48 +172,123 @@ export class HUD {
     }
   }
 
-  public updateWeaponState(
-    ammo: { inMag: number; reserve: number; maxMag: number },
+  public getActiveWeapon(): WeaponType {
+    return this.activeWeapon;
+  }
+
+  public setActiveWeapon(type: WeaponType): void {
+    this.activeWeapon = type;
+    if (this.slotSniper) {
+      if (type === 'sniper') {
+        this.slotSniper.classList.add('active');
+      } else {
+        this.slotSniper.classList.remove('active');
+      }
+    }
+
+    if (this.slotKnife) {
+      if (type === 'knife') {
+        this.slotKnife.classList.add('active');
+      } else {
+        this.slotKnife.classList.remove('active');
+      }
+    }
+  }
+
+  public updateWeaponDisplay(
+    weaponType: WeaponType,
+    ammo: { inMag: number; reserve: number; maxMag: number } | null,
     stats: WeaponStats,
     isReloading: boolean,
     reloadProgress: number,
-    isScoped: boolean
+    isScoped: boolean,
+    knifeCooldownProgress: number = 0
   ): void {
-    // 1. Ammo value & styling
-    if (this.ammoValueText) {
-      this.ammoValueText.textContent = `${ammo.inMag} / ${ammo.reserve}`;
-      if (ammo.inMag === 0) {
-        this.ammoValueText.style.color = '#f85149'; // Red when empty
-      } else if (ammo.inMag <= 2) {
-        this.ammoValueText.style.color = '#d29922'; // Orange warning
-      } else {
-        this.ammoValueText.style.color = '#f0f6fc'; // Normal
-      }
-    }
+    this.setActiveWeapon(weaponType);
 
-    // 2. Reload progress bar
-    if (this.reloadStatus && this.reloadBarFill) {
-      if (isReloading) {
-        this.reloadStatus.style.display = 'flex';
-        this.reloadBarFill.style.width = `${Math.round(reloadProgress * 100)}%`;
-      } else {
+    // 1. Weapon Label & Ammo Text
+    if (weaponType === 'sniper') {
+      if (this.weaponNameText) {
+        this.weaponNameText.textContent = 'SNIPER RIFLE';
+      }
+
+      if (this.ammoValueText && ammo) {
+        this.ammoValueText.textContent = `${ammo.inMag} / ${ammo.reserve}`;
+        if (ammo.inMag === 0) {
+          this.ammoValueText.style.color = '#f85149'; // Red when empty
+        } else if (ammo.inMag <= 2) {
+          this.ammoValueText.style.color = '#d29922'; // Orange warning
+        } else {
+          this.ammoValueText.style.color = '#f0f6fc'; // Normal
+        }
+      }
+
+      // Reload progress bar
+      if (this.reloadStatus && this.reloadBarFill) {
+        if (isReloading) {
+          this.reloadStatus.style.display = 'flex';
+          this.reloadBarFill.style.width = `${Math.round(reloadProgress * 100)}%`;
+        } else {
+          this.reloadStatus.style.display = 'none';
+          this.reloadBarFill.style.width = '0%';
+        }
+      }
+
+      // Knife cooldown hidden for sniper
+      if (this.cooldownStatus) {
+        this.cooldownStatus.style.display = 'none';
+      }
+
+      // Scope overlay and crosshair toggle
+      if (this.isCurrentlyScoped !== isScoped) {
+        this.isCurrentlyScoped = isScoped;
+        if (this.scopeOverlay) {
+          this.scopeOverlay.style.display = isScoped ? 'block' : 'none';
+        }
+        if (this.crosshair) {
+          this.crosshair.style.display = isScoped ? 'none' : 'block';
+        }
+      }
+    } else {
+      // Weapon is Knife
+      if (this.weaponNameText) {
+        this.weaponNameText.textContent = 'TACTICAL KNIFE';
+      }
+
+      if (this.ammoValueText) {
+        this.ammoValueText.textContent = 'MELEE';
+        this.ammoValueText.style.color = '#58a6ff';
+      }
+
+      // Reload status always hidden for knife
+      if (this.reloadStatus) {
         this.reloadStatus.style.display = 'none';
-        this.reloadBarFill.style.width = '0%';
+      }
+
+      // Scope overlay always hidden for knife
+      if (this.isCurrentlyScoped) {
+        this.isCurrentlyScoped = false;
+        if (this.scopeOverlay) {
+          this.scopeOverlay.style.display = 'none';
+        }
+        if (this.crosshair) {
+          this.crosshair.style.display = 'block';
+        }
+      }
+
+      // Knife attack cooldown bar
+      if (this.cooldownStatus && this.cooldownBarFill) {
+        if (knifeCooldownProgress > 0) {
+          this.cooldownStatus.style.display = 'flex';
+          this.cooldownBarFill.style.width = `${Math.round(knifeCooldownProgress * 100)}%`;
+        } else {
+          this.cooldownStatus.style.display = 'none';
+          this.cooldownBarFill.style.width = '0%';
+        }
       }
     }
 
-    // 3. Scope overlay and crosshair toggle
-    if (this.isCurrentlyScoped !== isScoped) {
-      this.isCurrentlyScoped = isScoped;
-      if (this.scopeOverlay) {
-        this.scopeOverlay.style.display = isScoped ? 'block' : 'none';
-      }
-      if (this.crosshair) {
-        this.crosshair.style.display = isScoped ? 'none' : 'block';
-      }
-    }
-
-    // 4. Statistics Readout
+    // 2. Statistics Readout
     if (this.statShotsFired) {
       this.statShotsFired.textContent = stats.shotsFired.toString();
     }

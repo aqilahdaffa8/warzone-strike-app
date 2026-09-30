@@ -3,6 +3,8 @@ import { SniperConfig } from '../config/gameConfig';
 import { PlayerController } from '../player/PlayerController';
 import { TargetDummy } from '../environment/TargetDummy';
 
+import { Weapon, WeaponType } from './Weapon';
+
 export interface FireResult {
   fired: boolean;
   reason?: 'cooldown' | 'empty' | 'reloading';
@@ -20,10 +22,16 @@ export interface WeaponStats {
   accuracy: number;
 }
 
-export class Sniper {
+export class Sniper implements Weapon {
+  public readonly type: WeaponType = 'sniper';
+  public readonly name: string = 'Sniper Rifle';
+
   private readonly config: SniperConfig;
   private readonly camera: THREE.PerspectiveCamera;
   private readonly scene: THREE.Scene;
+
+  // Active / Selected State
+  private isActive: boolean = true;
 
   // Ammo & Reload State
   private ammoInMag: number;
@@ -31,6 +39,7 @@ export class Sniper {
   private fireTimer: number = 0;
   private isReloading: boolean = false;
   private reloadTimer: number = 0;
+
 
   // Scope & Aiming State
   private isScoped: boolean = false;
@@ -350,6 +359,30 @@ export class Sniper {
     };
   }
 
+  public cancelReload(): void {
+    if (this.isReloading) {
+      this.isReloading = false;
+      this.reloadTimer = 0;
+    }
+  }
+
+  public setActive(active: boolean): void {
+    this.isActive = active;
+    if (!active) {
+      this.cancelReload();
+      this.setScoped(false);
+      this.gunGroup.visible = false;
+      if (this.muzzleFlashMesh) this.muzzleFlashMesh.visible = false;
+      if (this.muzzleFlashLight) this.muzzleFlashLight.visible = false;
+    } else {
+      this.gunGroup.visible = true;
+    }
+  }
+
+  public getIsActive(): boolean {
+    return this.isActive;
+  }
+
   public resetAmmo(): void {
     this.ammoInMag = this.config.magazineCapacity;
     this.reserveAmmo = this.config.reserveAmmo;
@@ -427,35 +460,41 @@ export class Sniper {
       }
     }
 
-    // 3. Scope FOV & Sensitivity Interpolation
-    const targetFov = this.isScoped ? this.config.scopedFov : this.config.defaultFov;
-    if (Math.abs(this.camera.fov - targetFov) > 0.05) {
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1.0, dt * 18.0));
-      this.camera.updateProjectionMatrix();
-    } else {
-      this.camera.fov = targetFov;
-      this.camera.updateProjectionMatrix();
-    }
-
-    // Dynamic mouse sensitivity multiplier according to zoom level
-    const sensMultiplier = this.camera.fov / this.config.defaultFov;
-    playerController.setSensitivityMultiplier(sensMultiplier);
-
-    // 4. Viewmodel Visibility & Recoil Recovery
-    if (this.isScoped && this.camera.fov < 40) {
-      // Hide gun model while scoped so scope overlay is completely clean
+    // If weapon is inactive (e.g. switched to knife), hide viewmodel and do not touch FOV/sensitivity
+    if (!this.isActive) {
       this.gunGroup.visible = false;
     } else {
-      this.gunGroup.visible = true;
+      // 3. Scope FOV & Sensitivity Interpolation
+      const targetFov = this.isScoped ? this.config.scopedFov : this.config.defaultFov;
+      if (Math.abs(this.camera.fov - targetFov) > 0.05) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1.0, dt * 18.0));
+        this.camera.updateProjectionMatrix();
+      } else {
+        this.camera.fov = targetFov;
+        this.camera.updateProjectionMatrix();
+      }
 
-      // Recover recoil smoothly
-      this.recoilOffset = Math.max(0, this.recoilOffset - dt * 0.45);
-      this.recoilPitch = Math.max(0, this.recoilPitch - dt * 0.35);
+      // Dynamic mouse sensitivity multiplier according to zoom level
+      const sensMultiplier = this.camera.fov / this.config.defaultFov;
+      playerController.setSensitivityMultiplier(sensMultiplier);
 
-      // Idle rest position + recoil kick
-      this.gunGroup.position.set(0.24, -0.22, -0.52 + this.recoilOffset);
-      this.gunGroup.rotation.set(0.04 + this.recoilPitch, -0.05, 0);
+      // 4. Viewmodel Visibility & Recoil Recovery
+      if (this.isScoped && this.camera.fov < 40) {
+        // Hide gun model while scoped so scope overlay is completely clean
+        this.gunGroup.visible = false;
+      } else {
+        this.gunGroup.visible = true;
+
+        // Recover recoil smoothly
+        this.recoilOffset = Math.max(0, this.recoilOffset - dt * 0.45);
+        this.recoilPitch = Math.max(0, this.recoilPitch - dt * 0.35);
+
+        // Idle rest position + recoil kick
+        this.gunGroup.position.set(0.24, -0.22, -0.52 + this.recoilOffset);
+        this.gunGroup.rotation.set(0.04 + this.recoilPitch, -0.05, 0);
+      }
     }
+
 
     // 5. Muzzle Flash Decay
     if (this.muzzleFlashTimer > 0) {

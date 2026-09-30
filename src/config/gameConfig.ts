@@ -21,6 +21,13 @@ export interface SniperConfig {
   defaultFov: number;
 }
 
+export interface KnifeConfig {
+  damage: number;
+  headshotMultiplier: number;
+  cooldown: number;
+  range: number;
+}
+
 export interface TargetDummyConfig {
   maxHp: number;
   respawnTime: number;
@@ -29,6 +36,7 @@ export interface TargetDummyConfig {
 export interface GameConfig {
   player: PlayerConfig;
   sniper: SniperConfig;
+  knife: KnifeConfig;
   dummy: TargetDummyConfig;
 }
 
@@ -58,8 +66,15 @@ export const GAME_CONFIG: GameConfig = {
     scopedFov: 20, // 20 degrees scope
     defaultFov: 75, // 75 degrees normal
   },
+  knife: {
+    damage: 35, // 35 damage per swing
+    headshotMultiplier: 1.5, // 1.5x multiplier for headshots
+    cooldown: 0.6, // 0.6s attack cooldown
+    range: 2.0, // 2.0m melee range
+  },
   dummy: {
     maxHp: 100,
     respawnTime: 2.0, // 2.0s respawn after knockdown
   },
 };
+
