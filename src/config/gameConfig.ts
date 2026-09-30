@@ -33,11 +33,22 @@ export interface TargetDummyConfig {
   respawnTime: number;
 }
 
+export interface EnemyConfig {
+  maxHp: number;
+  damage: number;
+  speed: number;
+  attackRange: number;
+  attackCooldown: number;
+  radius: number;
+  height: number;
+}
+
 export interface GameConfig {
   player: PlayerConfig;
   sniper: SniperConfig;
   knife: KnifeConfig;
   dummy: TargetDummyConfig;
+  enemy: EnemyConfig;
 }
 
 /**
@@ -75,6 +86,15 @@ export const GAME_CONFIG: GameConfig = {
   dummy: {
     maxHp: 100,
     respawnTime: 2.0, // 2.0s respawn after knockdown
+  },
+  enemy: {
+    maxHp: 100, // 100 HP
+    damage: 10, // 10 damage per melee hit
+    speed: 3.5, // 3.5 m/s movement speed
+    attackRange: 2.0, // 2.0 m attack range
+    attackCooldown: 1.0, // 1.0 s attack interval
+    radius: 0.4, // AABB half-extents in XZ plane (0.8m diameter)
+    height: 1.8, // 1.8m height
   },
 };
 

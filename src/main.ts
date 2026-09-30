@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { Game } from './core/Game';
 
 function initialize(): void {
@@ -7,8 +8,14 @@ function initialize(): void {
     return;
   }
 
+  (window as unknown as { THREE: typeof THREE }).THREE = THREE;
   const game = new Game(canvas);
   game.start();
+  (window as unknown as { __WARZONE_GAME__: Game }).__WARZONE_GAME__ = game;
 }
 
-window.addEventListener('DOMContentLoaded', initialize);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initialize);
+} else {
+  initialize();
+}

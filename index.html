@@ -478,11 +478,25 @@
         accent-color: #58a6ff;
         cursor: pointer;
       }
+    
+      #damage-vignette {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.75);
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+        z-index: 45;
+      }
     </style>
   </head>
   <body>
     <div id="game-container">
       <canvas id="game-canvas"></canvas>
+      <div id="damage-vignette"></div>
 
       <!-- Heads-Up Display -->
       <div id="hud">
@@ -541,8 +555,8 @@
 
         <!-- Top-left info -->
         <div id="info-overlay">
-          <span class="title">Warzone Strike — Phase 4</span>
-          <span>Sniper Rifle &amp; Tactical Knife Active (1, 2, Scroll)</span>
+          <span class="title">Warzone Strike — Phase 5</span>
+          <span>Hostile Enemies Active (Chase, Melee Attack, Health &amp; Death)</span>
         </div>
 
         <!-- Top-right Debug Controls & Stats Readout -->
@@ -565,6 +579,10 @@
               <span>Accuracy:</span>
               <span id="stat-accuracy" class="stat-num">0%</span>
             </div>
+            <div class="stat-item">
+              <span>Enemies:</span>
+              <span id="stat-enemies-count" class="stat-num">0</span>
+            </div>
           </div>
           <div class="debug-buttons">
             <button id="btn-debug-switch-sniper" class="btn-debug" title="Hotkey: 1">[1] Sniper</button>
@@ -574,6 +592,10 @@
             <button id="btn-debug-reload" class="btn-debug" title="Hotkey: R">Reload (R)</button>
             <button id="btn-debug-reset-ammo" class="btn-debug">Reset Ammo</button>
             <button id="btn-debug-reset-dummies" class="btn-debug">Respawn Dummies</button>
+          </div>
+                    <div class="debug-buttons">
+            <button id="btn-debug-spawn-enemy" class="btn-debug" title="Spawn an active hostile enemy">+ Enemy</button>
+            <button id="btn-debug-clear-enemies" class="btn-debug" title="Clear all active enemies">Clear Enemies</button>
           </div>
           <div class="debug-buttons">
             <button id="btn-debug-damage" class="btn-debug" title="Keyboard hotkey: H or K">-15 HP (H)</button>

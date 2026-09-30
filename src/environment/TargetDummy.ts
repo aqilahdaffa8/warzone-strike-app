@@ -1,14 +1,10 @@
 import * as THREE from 'three';
 import { TargetDummyConfig } from '../config/gameConfig';
+import { DamageableTarget, HitResult } from '../weapons/Weapon';
 
-export interface HitResult {
-  damage: number;
-  isHeadshot: boolean;
-  remainingHp: number;
-  isKilled: boolean;
-}
+export type { HitResult };
 
-export class TargetDummy {
+export class TargetDummy implements DamageableTarget {
   public readonly id: string;
   public readonly group: THREE.Group;
 

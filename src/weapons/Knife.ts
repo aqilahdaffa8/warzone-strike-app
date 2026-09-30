@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { KnifeConfig } from '../config/gameConfig';
-import { TargetDummy } from '../environment/TargetDummy';
-import { Weapon, WeaponType } from './Weapon';
+import { Weapon, WeaponType, DamageableTarget } from './Weapon';
 
 export interface KnifeAttackResult {
   attacked: boolean;
@@ -10,7 +9,7 @@ export interface KnifeAttackResult {
   isHeadshot?: boolean;
   damage?: number;
   hitPoint?: THREE.Vector3;
-  target?: TargetDummy;
+  target?: DamageableTarget;
   hitObstacle?: boolean;
 }
 
@@ -199,7 +198,7 @@ export class Knife implements Weapon {
     this.attackAnimTimer = 0;
   }
 
-  public attack(obstacles: THREE.Object3D[], targetDummies: TargetDummy[]): KnifeAttackResult {
+  public attack(obstacles: THREE.Object3D[], targets: DamageableTarget[]): KnifeAttackResult {
     if (!this.isActive) {
       return { attacked: false, reason: 'inactive' };
     }
@@ -225,7 +224,7 @@ export class Knife implements Weapon {
 
     // 2. Gather candidate meshes: Arena obstacles + dummy hitboxes
     const candidateMeshes: THREE.Object3D[] = [...obstacles];
-    for (const dummy of targetDummies) {
+    for (const dummy of targets) {
       if (!dummy.getIsDead()) {
         candidateMeshes.push(...dummy.getHitboxMeshes());
       }
@@ -243,7 +242,7 @@ export class Knife implements Weapon {
 
         // Check if dummy hitbox was struck
         if (closest.object.userData && closest.object.userData.type === 'hitbox') {
-          const dummy = closest.object.userData.target as TargetDummy;
+          const dummy = closest.object.userData.target as DamageableTarget;
           const isHeadshot = closest.object.userData.part === 'head';
 
           const damage = isHeadshot

@@ -6,6 +6,8 @@ export interface HUDCallbacks {
   onReloadRequested?: () => void;
   onResetAmmoRequested?: () => void;
   onResetDummiesRequested?: () => void;
+  onSpawnEnemyRequested?: () => void;
+  onClearEnemiesRequested?: () => void;
   onSwitchWeaponRequested?: (type: WeaponType) => void;
 }
 
@@ -37,6 +39,10 @@ export class HUD {
   private readonly statShotsHit: HTMLElement | null;
   private readonly statHeadshots: HTMLElement | null;
   private readonly statAccuracy: HTMLElement | null;
+  private readonly statEnemiesCount: HTMLElement | null;
+  private readonly damageVignette: HTMLElement | null;
+  private previousHp: number = 100;
+  private damageVignetteTimeout: number | null = null;
 
   // Debug Buttons
   private readonly debugSwitchSniperBtn: HTMLButtonElement | null;
@@ -44,6 +50,8 @@ export class HUD {
   private readonly debugReloadBtn: HTMLButtonElement | null;
   private readonly debugResetAmmoBtn: HTMLButtonElement | null;
   private readonly debugResetDummiesBtn: HTMLButtonElement | null;
+  private readonly debugSpawnEnemyBtn: HTMLButtonElement | null;
+  private readonly debugClearEnemiesBtn: HTMLButtonElement | null;
 
   private unsubscribeHealth: (() => void) | null = null;
   private isCurrentlyScoped: boolean = false;
@@ -73,12 +81,17 @@ export class HUD {
     this.statShotsHit = document.querySelector<HTMLElement>('#stat-shots-hit');
     this.statHeadshots = document.querySelector<HTMLElement>('#stat-headshots');
     this.statAccuracy = document.querySelector<HTMLElement>('#stat-accuracy');
+    this.statEnemiesCount = document.querySelector<HTMLElement>('#stat-enemies-count');
+    this.damageVignette = document.querySelector<HTMLElement>('#damage-vignette');
+    this.previousHp = health.getHp();
 
     this.debugSwitchSniperBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-sniper');
     this.debugSwitchKnifeBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-knife');
     this.debugReloadBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reload');
     this.debugResetAmmoBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset-ammo');
     this.debugResetDummiesBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset-dummies');
+    this.debugSpawnEnemyBtn = document.querySelector<HTMLButtonElement>('#btn-debug-spawn-enemy');
+    this.debugClearEnemiesBtn = document.querySelector<HTMLButtonElement>('#btn-debug-clear-enemies');
 
     this.setupListeners(health, callbacks);
   }
@@ -150,9 +163,28 @@ export class HUD {
         callbacks.onResetDummiesRequested!();
       });
     }
+
+    if (this.debugSpawnEnemyBtn && callbacks?.onSpawnEnemyRequested) {
+      this.debugSpawnEnemyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        callbacks.onSpawnEnemyRequested!();
+      });
+    }
+
+    if (this.debugClearEnemiesBtn && callbacks?.onClearEnemiesRequested) {
+      this.debugClearEnemiesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        callbacks.onClearEnemiesRequested!();
+      });
+    }
   }
 
   private updateHealthDisplay(current: number, max: number): void {
+    if (current < this.previousHp) {
+      this.flashDamageVignette();
+    }
+    this.previousHp = current;
+
     const percentage = Math.max(0, Math.min(100, (current / max) * 100));
 
     if (this.healthBarFill) {
@@ -170,6 +202,20 @@ export class HUD {
     if (this.healthValueText) {
       this.healthValueText.textContent = `${current} / ${max}`;
     }
+  }
+
+  private flashDamageVignette(): void {
+    if (!this.damageVignette) return;
+    this.damageVignette.style.opacity = '1';
+    if (this.damageVignetteTimeout !== null) {
+      window.clearTimeout(this.damageVignetteTimeout);
+    }
+    this.damageVignetteTimeout = window.setTimeout(() => {
+      if (this.damageVignette) {
+        this.damageVignette.style.opacity = '0';
+      }
+      this.damageVignetteTimeout = null;
+    }, 180);
   }
 
   public getActiveWeapon(): WeaponType {
@@ -202,7 +248,8 @@ export class HUD {
     isReloading: boolean,
     reloadProgress: number,
     isScoped: boolean,
-    knifeCooldownProgress: number = 0
+    knifeCooldownProgress: number = 0,
+    enemyCount: number = 0
   ): void {
     this.setActiveWeapon(weaponType);
 
@@ -300,6 +347,9 @@ export class HUD {
     }
     if (this.statAccuracy) {
       this.statAccuracy.textContent = `${stats.accuracy}%`;
+    }
+    if (this.statEnemiesCount) {
+      this.statEnemiesCount.textContent = enemyCount.toString();
     }
   }
 

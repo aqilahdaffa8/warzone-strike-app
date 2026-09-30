@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { SniperConfig } from '../config/gameConfig';
 import { PlayerController } from '../player/PlayerController';
-import { TargetDummy } from '../environment/TargetDummy';
 
-import { Weapon, WeaponType } from './Weapon';
+import { Weapon, WeaponType, DamageableTarget } from './Weapon';
 
 export interface FireResult {
   fired: boolean;
@@ -12,7 +11,7 @@ export interface FireResult {
   isHeadshot?: boolean;
   damage?: number;
   hitPoint?: THREE.Vector3;
-  target?: TargetDummy;
+  target?: DamageableTarget;
 }
 
 export interface WeaponStats {
@@ -199,7 +198,7 @@ export class Sniper implements Weapon {
     return this.fireTimer <= 0 && !this.isReloading && this.ammoInMag > 0;
   }
 
-  public fire(obstacles: THREE.Object3D[], targetDummies: TargetDummy[]): FireResult {
+  public fire(obstacles: THREE.Object3D[], targets: DamageableTarget[]): FireResult {
     // Check reload constraint
     if (this.isReloading) {
       return { fired: false, reason: 'reloading' };
@@ -236,7 +235,7 @@ export class Sniper implements Weapon {
 
     // 2. Gather all candidate meshes: Arena obstacles + dummy hitboxes
     const candidateMeshes: THREE.Object3D[] = [...obstacles];
-    for (const dummy of targetDummies) {
+    for (const dummy of targets) {
       if (!dummy.getIsDead()) {
         candidateMeshes.push(...dummy.getHitboxMeshes());
       }
@@ -254,7 +253,7 @@ export class Sniper implements Weapon {
 
       // Check if closest hit object is a dummy hitbox
       if (closest.object.userData && closest.object.userData.type === 'hitbox') {
-        const dummy = closest.object.userData.target as TargetDummy;
+        const dummy = closest.object.userData.target as DamageableTarget;
         const isHeadshot = closest.object.userData.part === 'head';
 
         const damage = isHeadshot

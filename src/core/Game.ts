@@ -8,8 +8,9 @@ import { HUD } from '../ui/HUD';
 import { PauseMenu } from '../ui/PauseMenu';
 import { Sniper } from '../weapons/Sniper';
 import { Knife } from '../weapons/Knife';
-import { WeaponType } from '../weapons/Weapon';
+import { WeaponType, DamageableTarget } from '../weapons/Weapon';
 import { TargetDummy } from '../environment/TargetDummy';
+import { Enemy } from '../enemies/Enemy';
 
 export class Game {
   private readonly canvas: HTMLCanvasElement;
@@ -26,6 +27,8 @@ export class Game {
   private activeWeaponType: WeaponType = 'sniper';
 
   private readonly targetDummies: TargetDummy[] = [];
+  private readonly enemies: Enemy[] = [];
+  private enemySpawnCounter: number = 0;
   private readonly hud: HUD;
   private readonly pauseMenu: PauseMenu;
 
@@ -88,8 +91,9 @@ export class Game {
     this.sniper.setActive(true);
     this.knife.setActive(false);
 
-    // 8. Environment Target Dummies (Configured for testing both Sniper and Knife)
+    // 8. Environment Target Dummies & Enemies
     this.spawnTargetDummies();
+    this.spawnInitialEnemies();
 
     // 9. UI Systems
     this.hud = new HUD(this.playerHealth, {
@@ -103,6 +107,12 @@ export class Game {
       },
       onResetDummiesRequested: () => {
         this.targetDummies.forEach((d) => d.reset());
+      },
+      onSpawnEnemyRequested: () => {
+        this.spawnEnemy();
+      },
+      onClearEnemiesRequested: () => {
+        this.clearEnemies();
       },
       onSwitchWeaponRequested: (type: WeaponType) => {
         if (this.state === 'PLAYING') {
@@ -203,6 +213,43 @@ export class Game {
     this.scene.add(dummy4.group);
   }
 
+  public spawnEnemy(position?: THREE.Vector3): Enemy {
+    this.enemySpawnCounter++;
+    const spawnPos = position || new THREE.Vector3(
+      (Math.random() - 0.5) * 26,
+      0,
+      (Math.random() - 0.5) * 20 - 4
+    );
+    const enemy = new Enemy(
+      `enemy-${this.enemySpawnCounter}`,
+      spawnPos,
+      GAME_CONFIG.enemy,
+      this.arena.getColliders(),
+      this.scene
+    );
+    this.enemies.push(enemy);
+    return enemy;
+  }
+
+  public clearEnemies(): void {
+    for (const enemy of this.enemies) {
+      enemy.dispose();
+    }
+    this.enemies.length = 0;
+  }
+
+  private spawnInitialEnemies(): void {
+    // Spawn 2 hostile enemies in the arena for Phase 5 verification
+    // Enemy 1: Approaching from left flank at (-10, 0, 4)
+    this.spawnEnemy(new THREE.Vector3(-10, 0, 4));
+    // Enemy 2: Approaching from right flank at (12, 0, 2)
+    this.spawnEnemy(new THREE.Vector3(12, 0, 2));
+  }
+
+  private getTargets(): DamageableTarget[] {
+    return [...this.targetDummies, ...this.enemies];
+  }
+
   public switchWeapon(type: WeaponType): void {
     if (this.activeWeaponType === type) return;
 
@@ -286,10 +333,11 @@ export class Game {
 
     // Left click: Fire Sniper or Slash Knife depending on active weapon
     if (e.button === 0) {
+      const targets = this.getTargets();
       if (this.activeWeaponType === 'sniper') {
-        this.sniper.fire(this.arena.getRaycastObstacles(), this.targetDummies);
+        this.sniper.fire(this.arena.getRaycastObstacles(), targets);
       } else if (this.activeWeaponType === 'knife') {
-        this.knife.attack(this.arena.getRaycastObstacles(), this.targetDummies);
+        this.knife.attack(this.arena.getRaycastObstacles(), targets);
       }
     }
 
@@ -349,7 +397,7 @@ export class Game {
     }
   };
 
-  private setState(newState: GameStateType): void {
+  public setState(newState: GameStateType): void {
     this.state = newState;
 
     switch (this.state) {
@@ -410,6 +458,12 @@ export class Game {
     const rawDelta = this.clock.getDelta();
     const dt = Math.min(rawDelta, 0.05);
 
+    this.update(dt);
+    this.render();
+    requestAnimationFrame(this.loop);
+  };
+
+  public update(dt: number): void {
     if (this.state === 'PLAYING') {
       // 1. Update Player Movement & Look
       this.playerController.update(dt);
@@ -423,7 +477,23 @@ export class Game {
         this.targetDummies[i].update(dt, this.camera.position);
       }
 
-      // 4. Update HUD with active weapon state
+      // 4. Update Hostile Enemies (Pursuit, Collision Sliding, Melee Attacks, Death Cleanup)
+      const otherEnemyPositions: THREE.Vector3[] = this.enemies.map((e) => e.position);
+      for (let i = this.enemies.length - 1; i >= 0; i--) {
+        const enemy = this.enemies[i];
+        enemy.update(
+          dt,
+          this.playerController.position,
+          this.playerHealth,
+          this.camera.position,
+          otherEnemyPositions
+        );
+        if (enemy.isFullyRemoved()) {
+          this.enemies.splice(i, 1);
+        }
+      }
+
+      // 5. Update HUD with active weapon state
       this.hud.updateWeaponDisplay(
         this.activeWeaponType,
         this.activeWeaponType === 'sniper' ? this.sniper.getAmmo() : null,
@@ -431,13 +501,11 @@ export class Game {
         this.sniper.getIsReloading(),
         this.sniper.getReloadProgress(),
         this.sniper.getIsScoped(),
-        this.knife.getCooldownProgress()
+        this.knife.getCooldownProgress(),
+        this.enemies.length
       );
     }
-
-    this.render();
-    requestAnimationFrame(this.loop);
-  };
+  }
 
   private render(): void {
     this.renderer.render(this.scene, this.camera);
@@ -458,6 +526,10 @@ export class Game {
     for (const dummy of this.targetDummies) {
       dummy.dispose();
     }
+    for (const enemy of this.enemies) {
+      enemy.dispose();
+    }
+    this.enemies.length = 0;
     this.hud.dispose();
     this.renderer.dispose();
   }
