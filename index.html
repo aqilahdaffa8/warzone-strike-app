@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Warzone Strike</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #0d1117;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: #e6edf3;
+      }
+      #game-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #game-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* ----------------------------------------------------
+         HUD (Heads-Up Display)
+         ---------------------------------------------------- */
+      #hud {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: none;
+      }
+
+      /* Center Reticle / Crosshair */
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .ch-dot {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 3px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+      }
+      .ch-line {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.75);
+        box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+      }
+      .ch-top {
+        top: 0;
+        left: 9px;
+        width: 2px;
+        height: 5px;
+      }
+      .ch-bottom {
+        bottom: 0;
+        left: 9px;
+        width: 2px;
+        height: 5px;
+      }
+      .ch-left {
+        top: 9px;
+        left: 0;
+        width: 5px;
+        height: 2px;
+      }
+      .ch-right {
+        top: 9px;
+        right: 0;
+        width: 5px;
+        height: 2px;
+      }
+
+      /* Top-left Info Badge */
+      #info-overlay {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(13, 17, 23, 0.85);
+        backdrop-filter: blur(4px);
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        pointer-events: none;
+      }
+      .title {
+        font-weight: 700;
+        font-size: 13px;
+        color: #58a6ff;
+        text-transform: uppercase;
+      }
+
+      /* Top-right Debug Controls */
+      #hud-debug-panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: rgba(13, 17, 23, 0.85);
+        backdrop-filter: blur(4px);
+        padding: 10px 14px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .debug-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .debug-buttons {
+        display: flex;
+        gap: 8px;
+      }
+      .btn-debug {
+        background: #21262d;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .btn-debug:hover {
+        background: #30363d;
+        color: #ffffff;
+        border-color: #8b949e;
+      }
+      .btn-debug:active {
+        transform: scale(0.97);
+      }
+
+      /* Bottom-left Health Display */
+      #hud-health-container {
+        position: absolute;
+        bottom: 24px;
+        left: 24px;
+        background: rgba(13, 17, 23, 0.85);
+        backdrop-filter: blur(6px);
+        padding: 12px 18px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 240px;
+        pointer-events: none;
+      }
+      .hud-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #8b949e;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #hud-health-val {
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      #hud-health-bar {
+        width: 100%;
+        height: 12px;
+        background: #21262d;
+        border-radius: 3px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      #hud-health-fill {
+        width: 100%;
+        height: 100%;
+        background-color: #2ea043;
+        transition: width 0.15s ease-out, background-color 0.2s ease;
+      }
+
+      /* Bottom-right Weapon/Ammo Slot (Prepared for Phase 3) */
+      #hud-ammo-container {
+        position: absolute;
+        bottom: 24px;
+        right: 24px;
+        background: rgba(13, 17, 23, 0.85);
+        backdrop-filter: blur(6px);
+        padding: 12px 18px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 180px;
+        pointer-events: none;
+        text-align: right;
+      }
+      .ammo-val {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #8b949e;
+        font-variant-numeric: tabular-nums;
+      }
+      .weapon-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #58a6ff;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* ----------------------------------------------------
+         Overlays (Start & Pause Modals)
+         ---------------------------------------------------- */
+      .modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(13, 17, 23, 0.82);
+        backdrop-filter: blur(8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+      }
+
+      .modal-card {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 28px 36px;
+        max-width: 440px;
+        width: 90%;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+      }
+
+      .modal-header h1 {
+        font-size: 22px;
+        font-weight: 700;
+        color: #58a6ff;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+      .modal-header p {
+        font-size: 13px;
+        color: #8b949e;
+      }
+
+      .modal-controls {
+        background: #0d1117;
+        border: 1px solid #21262d;
+        border-radius: 6px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-size: 12px;
+        text-align: left;
+      }
+      .control-row {
+        display: flex;
+        justify-content: space-between;
+      }
+      .control-key {
+        color: #58a6ff;
+        font-weight: 600;
+        font-family: monospace;
+      }
+      .control-desc {
+        color: #c9d1d9;
+      }
+
+      .btn-primary {
+        background: #238636;
+        color: #ffffff;
+        border: 1px solid rgba(240, 246, 252, 0.1);
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: background-color 0.15s ease, transform 0.1s ease;
+      }
+      .btn-primary:hover {
+        background: #2ea043;
+      }
+      .btn-primary:active {
+        transform: scale(0.98);
+      }
+
+      /* Settings Row in Pause Menu */
+      .setting-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        text-align: left;
+        background: #0d1117;
+        border: 1px solid #21262d;
+        padding: 12px 16px;
+        border-radius: 6px;
+      }
+      .setting-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 600;
+        color: #c9d1d9;
+      }
+      .setting-value {
+        color: #58a6ff;
+        font-family: monospace;
+      }
+      .slider-input {
+        width: 100%;
+        accent-color: #58a6ff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Heads-Up Display -->
+      <div id="hud">
+        <!-- Reticle -->
+        <div id="crosshair">
+          <div class="ch-line ch-top"></div>
+          <div class="ch-line ch-bottom"></div>
+          <div class="ch-line ch-left"></div>
+          <div class="ch-line ch-right"></div>
+          <div class="ch-dot"></div>
+        </div>
+
+        <!-- Top-left info -->
+        <div id="info-overlay">
+          <span class="title">Warzone Strike — Phase 2</span>
+          <span>FPS Controller &amp; Minimal HUD Active</span>
+        </div>
+
+        <!-- Top-right Debug Controls -->
+        <div id="hud-debug-panel">
+          <span class="debug-title">Phase 2 Debug Test</span>
+          <div class="debug-buttons">
+            <button id="btn-debug-damage" class="btn-debug" title="Keyboard hotkey: H or K">-15 HP (H)</button>
+            <button id="btn-debug-reset" class="btn-debug">Reset HP</button>
+          </div>
+        </div>
+
+        <!-- Bottom-left Health -->
+        <div id="hud-health-container">
+          <div class="hud-label">
+            <span>HEALTH</span>
+            <span id="hud-health-val">100 / 100</span>
+          </div>
+          <div id="hud-health-bar">
+            <div id="hud-health-fill"></div>
+          </div>
+        </div>
+
+        <!-- Bottom-right Ammo (Slot prepared for Phase 3) -->
+        <div id="hud-ammo-container">
+          <span class="weapon-label">PRIMARY [PHASE 3]</span>
+          <span id="hud-ammo-val" class="ammo-val">-- / --</span>
+        </div>
+      </div>
+
+      <!-- Start Overlay -->
+      <div id="start-overlay" class="modal-overlay">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h1>WARZONE STRIKE</h1>
+            <p>Phase 2 — Player, Health Dasar, HUD Minimal</p>
+          </div>
+
+          <div class="modal-controls">
+            <div class="control-row">
+              <span class="control-key">W / A / S / D</span>
+              <span class="control-desc">Gerak (Axis-separated sliding)</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">Mouse Look</span>
+              <span class="control-desc">Aim (Pointer Lock)</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">Space</span>
+              <span class="control-desc">Jump (Opsional)</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">Esc</span>
+              <span class="control-desc">Pause Menu</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">Right Click</span>
+              <span class="control-desc">Scope (Context menu dicegah)</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">H / K</span>
+              <span class="control-desc">Kurangi Health (-15 HP Debug)</span>
+            </div>
+          </div>
+
+          <button id="btn-start-game" class="btn-primary">CLICK TO ENTER ARENA</button>
+        </div>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pause-overlay" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h1>MISSION PAUSED</h1>
+            <p>Pointer lock dilepas atau tombol Esc ditekan</p>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-header">
+              <span>Mouse Sensitivity</span>
+              <span id="val-sensitivity" class="setting-value">0.0022</span>
+            </div>
+            <input
+              type="range"
+              id="slider-sensitivity"
+              class="slider-input"
+              min="0.0005"
+              max="0.0050"
+              step="0.0001"
+              value="0.0022"
+            />
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-header">
+              <span>Debug Health Testing</span>
+            </div>
+            <div class="debug-buttons" style="margin-top: 4px;">
+              <button id="btn-pause-damage" class="btn-debug" style="flex: 1;">-15 HP</button>
+              <button id="btn-pause-reset" class="btn-debug" style="flex: 1;">Reset HP</button>
+            </div>
+          </div>
+
+          <div class="modal-controls">
+            <div class="control-row">
+              <span class="control-key">Esc / Resume</span>
+              <span class="control-desc">Kembali ke permainan</span>
+            </div>
+          </div>
+
+          <button id="btn-resume" class="btn-primary">RESUME MISSION</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
