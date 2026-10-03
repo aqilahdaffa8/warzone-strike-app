@@ -65,6 +65,7 @@ Termasuk: 1 arena, 1 jenis enemy, 1 model boss, 2 senjata (sniper + knife), infi
 | Scroll | Ganti senjata |
 | Space | Jump (opsional) |
 | Esc | Pause |
+| Shift | Sprint dengan stamina terbatas |
 
 Catatan teknis wajib:
 
@@ -73,6 +74,7 @@ Catatan teknis wajib:
 - Cegah menu konteks browser pada canvas (`contextmenu` → `preventDefault`) agar klik kanan untuk scope bekerja.
 - Mouse sensitivity dapat diatur (setting sederhana di pause menu atau main menu).
 - Perspektif first-person. Pergerakan berbasis delta time.
+- Kamera memiliki head-bob ringan hanya saat pemain bergerak dan diam tanpa guncangan.
 
 ## 6. Sniper
 

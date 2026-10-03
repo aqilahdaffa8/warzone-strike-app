@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RewardConfig } from '../config/gameConfig';
+import { RewardConfig, SupplyDropConfig } from '../config/gameConfig';
 import { SupplyCrate, CrateRewardData } from './SupplyCrate';
 import { PlayerHealth } from '../player/PlayerHealth';
 import { Sniper } from '../weapons/Sniper';
@@ -10,11 +10,14 @@ export interface SupplyDropCallbacks {
   onRewardClaimed?: (data: CrateRewardData, message: string) => void;
   onCrateAvailable?: (isBossCrate: boolean, reward: CrateRewardData) => void;
   onRequestSelectionModal?: (waveNumber: number, isBossWave: boolean) => void;
+  onCrateExpired?: () => void;
 }
 
 export class SupplyDropManager {
   private readonly config: RewardConfig;
+  private readonly supplyConfig: SupplyDropConfig;
   private readonly scene: THREE.Scene;
+  private readonly colliders: THREE.Box3[];
   private readonly playerHealth: PlayerHealth;
   private readonly sniper: Sniper;
   private readonly grenadeManager: GrenadeManager;
@@ -28,7 +31,9 @@ export class SupplyDropManager {
 
   constructor(
     config: RewardConfig,
+    supplyConfig: SupplyDropConfig,
     scene: THREE.Scene,
+    colliders: THREE.Box3[],
     playerHealth: PlayerHealth,
     sniper: Sniper,
     grenadeManager: GrenadeManager,
@@ -36,7 +41,9 @@ export class SupplyDropManager {
     callbacks: SupplyDropCallbacks = {}
   ) {
     this.config = config;
+    this.supplyConfig = supplyConfig;
     this.scene = scene;
+    this.colliders = colliders;
     this.playerHealth = playerHealth;
     this.sniper = sniper;
     this.grenadeManager = grenadeManager;
@@ -66,12 +73,8 @@ export class SupplyDropManager {
     this.currentWaveNumber = waveNumber;
     this.isCurrentBossWave = isBossWave;
 
-    // Spawn 5m ahead of player in a safe open spot
-    const spawnPos = new THREE.Vector3(
-      Math.max(-20, Math.min(20, playerPos.x + (Math.random() - 0.5) * 6)),
-      0,
-      Math.max(-20, Math.min(20, playerPos.z + (Math.random() - 0.5) * 6))
-    );
+    // Find a random open arena position that does not intersect an obstacle.
+    const spawnPos = this.findValidSpawnPosition(playerPos);
 
     const willUnlockBazooka = !this.bazooka.getIsUnlocked();
     const rocketsCount = isBossWave
@@ -94,7 +97,13 @@ export class SupplyDropManager {
       isBossReward: isBossWave,
     };
 
-    this.activeCrate = new SupplyCrate(spawnPos, rewardData, this.scene);
+    this.activeCrate = new SupplyCrate(
+      spawnPos,
+      rewardData,
+      this.scene,
+      this.supplyConfig.interactionRadius,
+      this.supplyConfig.hiddenLifetime
+    );
 
     if (this.callbacks.onCrateAvailable) {
       this.callbacks.onCrateAvailable(isBossWave, rewardData);
@@ -105,13 +114,18 @@ export class SupplyDropManager {
    * Opens the interactive supply selection modal for the player to choose their reward(s).
    */
   public openSupplySelection(): boolean {
-    if (!this.activeCrate || this.activeCrate.getIsClaimed()) {
+    if (!this.activeCrate || this.activeCrate.getIsClaimed() || !this.playerNearCrate) {
       return false;
     }
+
     if (this.callbacks.onRequestSelectionModal) {
-      this.callbacks.onRequestSelectionModal(this.currentWaveNumber, this.isCurrentBossWave);
+      this.callbacks.onRequestSelectionModal(
+        this.currentWaveNumber,
+        this.isCurrentBossWave
+      );
       return true;
     }
+
     return false;
   }
 
@@ -159,11 +173,51 @@ export class SupplyDropManager {
 
   public update(dt: number, playerPos: THREE.Vector3): void {
     if (this.activeCrate && !this.activeCrate.getIsClaimed()) {
-      const isNear = this.activeCrate.update(dt, playerPos);
-      this.playerNearCrate = isNear;
+      const result = this.activeCrate.update(dt, playerPos);
+      if (result.expired) {
+        this.clearCrate();
+        this.callbacks.onCrateExpired?.();
+        return;
+      }
+      this.playerNearCrate = result.isNear;
     } else {
       this.playerNearCrate = false;
     }
+  }
+
+
+  private findValidSpawnPosition(playerPos: THREE.Vector3): THREE.Vector3 {
+    const margin = this.supplyConfig.spawnMargin;
+    const crateHalfSize = new THREE.Vector3(0.6 + margin, 0.35 + margin, 0.4 + margin);
+    const candidate = new THREE.Vector3();
+
+    for (let attempt = 0; attempt < this.supplyConfig.maxSpawnAttempts; attempt++) {
+      candidate.set(
+        THREE.MathUtils.randFloat(this.supplyConfig.arenaMinX, this.supplyConfig.arenaMaxX),
+        0,
+        THREE.MathUtils.randFloat(this.supplyConfig.arenaMinZ, this.supplyConfig.arenaMaxZ)
+      );
+
+      // Avoid dropping directly on the player.
+      if (candidate.distanceTo(playerPos) < 5.0) continue;
+
+      const candidateBox = new THREE.Box3().setFromCenterAndSize(candidate, crateHalfSize);
+      if (this.colliders.some((collider) => candidateBox.intersectsBox(collider))) continue;
+
+      return candidate.clone();
+    }
+
+    // Safe fallback near the player, clamped inside the arena.
+    candidate.set(
+      THREE.MathUtils.clamp(playerPos.x + 5, this.supplyConfig.arenaMinX, this.supplyConfig.arenaMaxX),
+      0,
+      THREE.MathUtils.clamp(playerPos.z, this.supplyConfig.arenaMinZ, this.supplyConfig.arenaMaxZ)
+    );
+    return candidate;
+  }
+
+  public pauseActiveCrateLifetime(): void {
+    this.activeCrate?.pauseLifetime();
   }
 
   public clearCrate(): void {

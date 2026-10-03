@@ -15,9 +15,21 @@ export interface HUDCallbacks {
   onClaimRewardRequested?: () => void;
 }
 
+interface RadarPosition {
+  x: number;
+  z: number;
+}
+
+const RADAR_RANGE = 30;
+const RADAR_SIZE = 168;
+
 export class HUD {
   private readonly root: HTMLElement | null;
   private readonly crosshair: HTMLElement | null;
+  private readonly staminaBar: HTMLElement | null;
+  private readonly staminaBarFill: HTMLElement | null;
+  private readonly radarCanvas: HTMLCanvasElement | null;
+  private readonly radarContext: CanvasRenderingContext2D | null;
   private readonly scopeOverlay: HTMLElement | null;
 
   // Wave & Intermission Elements
@@ -53,6 +65,13 @@ export class HUD {
   private readonly slotM4: HTMLElement | null;
   private readonly slotGrenade: HTMLElement | null;
   private readonly slotGrenadeText: HTMLElement | null;
+  private readonly supplyPrompt: HTMLElement | null;
+  private readonly slot1Name: HTMLElement | null;
+  private readonly slot1Ammo: HTMLElement | null;
+  private readonly slot3Ammo: HTMLElement | null;
+  private readonly slot3Name: HTMLElement | null;
+  private readonly grenadeCountEl: HTMLElement | null;
+  private primarySlotWeapon: 'sniper' | 'akm' | 'm4' = 'sniper';
 
   // Ammo & Reload
   private readonly ammoValueText: HTMLElement | null;
@@ -92,6 +111,10 @@ export class HUD {
   constructor(health: PlayerHealth, callbacks?: HUDCallbacks) {
     this.root = document.querySelector<HTMLElement>('#hud');
     this.crosshair = document.querySelector<HTMLElement>('#crosshair');
+    this.staminaBar = document.querySelector<HTMLElement>('#hud-stamina');
+    this.staminaBarFill = document.querySelector<HTMLElement>('#hud-stamina-fill');
+    this.radarCanvas = document.querySelector<HTMLCanvasElement>('#hud-radar');
+    this.radarContext = this.radarCanvas?.getContext('2d') ?? null;
     this.scopeOverlay = document.querySelector<HTMLElement>('#scope-overlay');
 
     this.waveBadgeText = document.querySelector<HTMLElement>('#hud-wave-text');
@@ -103,6 +126,7 @@ export class HUD {
     this.claimRewardBtn = document.querySelector<HTMLButtonElement>('#btn-claim-reward');
     this.rewardNoticeEl = document.querySelector<HTMLElement>('#hud-reward-notice');
     this.rewardNoticeText = document.querySelector<HTMLElement>('#hud-reward-notice-text');
+    this.supplyPrompt = document.querySelector<HTMLElement>('#hud-supply-prompt');
 
     this.bossContainer = document.querySelector<HTMLElement>('#hud-boss-container');
     this.bossNameText = document.querySelector<HTMLElement>('#hud-boss-name');
@@ -116,12 +140,17 @@ export class HUD {
 
     this.weaponNameText = document.querySelector<HTMLElement>('#hud-weapon-name');
     this.slotSniper = document.querySelector<HTMLElement>('#slot-sniper');
+    this.slot1Name = document.querySelector<HTMLElement>('#slot-1-name');
+    this.slot1Ammo = document.querySelector<HTMLElement>('#slot-1-ammo');
     this.slotKnife = document.querySelector<HTMLElement>('#slot-knife');
     this.slotBazooka = document.querySelector<HTMLElement>('#slot-bazooka');
     this.slotAkm = document.querySelector<HTMLElement>('#slot-akm');
     this.slotM4 = document.querySelector<HTMLElement>('#slot-m4');
     this.slotGrenade = document.querySelector<HTMLElement>('#slot-grenade');
     this.slotGrenadeText = document.querySelector<HTMLElement>('#slot-grenade-text');
+    this.slot3Ammo = document.querySelector<HTMLElement>('#slot-3-ammo');
+    this.slot3Name = document.querySelector<HTMLElement>('#slot-3-name');
+    this.grenadeCountEl = document.querySelector<HTMLElement>('#hud-grenade-count');
 
     this.ammoValueText = document.querySelector<HTMLElement>('#hud-ammo-val');
     this.reloadStatus = document.querySelector<HTMLElement>('#hud-reload-status');
@@ -175,7 +204,7 @@ export class HUD {
     if (this.slotSniper && callbacks?.onSwitchWeaponRequested) {
       this.slotSniper.addEventListener('click', (e) => {
         e.stopPropagation();
-        callbacks.onSwitchWeaponRequested!('sniper');
+        callbacks.onSwitchWeaponRequested!(this.primarySlotWeapon);
       });
     }
 
@@ -390,24 +419,46 @@ export class HUD {
         this.slotM4.classList.remove('active');
       }
     }
+
+    // Slot 1 represents whichever primary weapon currently occupies it.
+    if (this.slotSniper) {
+      const isPrimary = type === 'sniper' || type === 'akm' || type === 'm4';
+      this.slotSniper.classList.toggle('active', isPrimary);
+    }
   }
 
   public setBazookaUnlocked(unlocked: boolean): void {
     if (this.slotBazooka) {
-      this.slotBazooka.style.display = unlocked ? 'flex' : 'none';
+      this.slotBazooka.style.display = 'flex';
+      this.slotBazooka.classList.toggle('locked', !unlocked);
+    }
+    if (this.slot3Name) {
+      this.slot3Name.textContent = unlocked ? 'RPG-7' : 'EMPTY';
+    }
+    if (this.slot3Ammo && !unlocked) {
+      this.slot3Ammo.textContent = 'EMPTY';
     }
   }
 
-  public setAkmUnlocked(unlocked: boolean): void {
-    if (this.slotAkm) {
-      this.slotAkm.style.display = unlocked ? 'flex' : 'none';
+  public setPrimarySlotWeapon(type: 'sniper' | 'akm' | 'm4'): void {
+    this.primarySlotWeapon = type;
+    if (this.slot1Name) {
+      this.slot1Name.textContent = type === 'sniper' ? 'SNIPER' : type === 'akm' ? 'AKM' : 'M4';
     }
   }
 
-  public setM4Unlocked(unlocked: boolean): void {
-    if (this.slotM4) {
-      this.slotM4.style.display = unlocked ? 'flex' : 'none';
+  public setSupplyInteractionAvailable(available: boolean): void {
+    if (this.supplyPrompt) {
+      this.supplyPrompt.style.display = available ? 'flex' : 'none';
     }
+  }
+
+  public setAkmUnlocked(_unlocked: boolean): void {
+    if (this.slotAkm) this.slotAkm.style.display = 'none';
+  }
+
+  public setM4Unlocked(_unlocked: boolean): void {
+    if (this.slotM4) this.slotM4.style.display = 'none';
   }
 
   public updateWeaponDisplay(
@@ -692,9 +743,24 @@ export class HUD {
   /**
    * Updates grenade count badge on weapon bar.
    */
+  public updatePrimarySlotAmmo(current: number, reserve: number): void {
+    if (this.slot1Ammo) {
+      this.slot1Ammo.textContent = `${current} / ${reserve}`;
+    }
+  }
+
+  public updateBazookaAmmo(current: number, reserve: number): void {
+    if (this.slot3Ammo && this.slot3Name?.textContent !== 'EMPTY') {
+      this.slot3Ammo.textContent = `${current} / ${reserve}`;
+    }
+  }
+
   public updateGrenadeCount(count: number): void {
     if (this.slotGrenadeText) {
       this.slotGrenadeText.textContent = `FRAG: ${count}`;
+    }
+    if (this.grenadeCountEl) {
+      this.grenadeCountEl.textContent = `FRAG: ${count} [G]`;
     }
   }
 
@@ -760,10 +826,93 @@ export class HUD {
     }
   }
 
+  public updateStaminaBar(isSprintKeyPressed: boolean, staminaRatio: number): void {
+    if (this.staminaBar) {
+      this.staminaBar.style.display = isSprintKeyPressed ? 'block' : 'none';
+      this.staminaBar.setAttribute('aria-valuenow', `${Math.round(staminaRatio * 100)}`);
+    }
+    if (this.staminaBarFill) {
+      this.staminaBarFill.style.width = `${Math.max(0, Math.min(1, staminaRatio)) * 100}%`;
+    }
+  }
+
+  public updateRadar(
+    playerPosition: RadarPosition,
+    heading: number,
+    enemyPositions: readonly RadarPosition[]
+  ): void {
+    const context = this.radarContext;
+    if (!context) return;
+
+    const center = RADAR_SIZE / 2;
+    const radarRadius = center - 6;
+    const markerRadius = radarRadius - 9;
+    const scale = markerRadius / RADAR_RANGE;
+
+    context.clearRect(0, 0, RADAR_SIZE, RADAR_SIZE);
+    context.beginPath();
+    context.arc(center, center, radarRadius, 0, Math.PI * 2);
+    context.fillStyle = 'rgba(13, 17, 23, 0.82)';
+    context.fill();
+    context.save();
+    context.clip();
+
+    context.strokeStyle = 'rgba(139, 148, 158, 0.22)';
+    context.lineWidth = 1;
+    for (const ringRatio of [0.5, 1]) {
+      context.beginPath();
+      context.arc(center, center, markerRadius * ringRatio, 0, Math.PI * 2);
+      context.stroke();
+    }
+
+    context.beginPath();
+    context.moveTo(center - markerRadius, center);
+    context.lineTo(center + markerRadius, center);
+    context.moveTo(center, center - markerRadius);
+    context.lineTo(center, center + markerRadius);
+    context.stroke();
+
+    for (const enemy of enemyPositions) {
+      const offsetX = enemy.x - playerPosition.x;
+      const offsetZ = enemy.z - playerPosition.z;
+      const distance = Math.hypot(offsetX, offsetZ);
+      if (distance > RADAR_RANGE) continue;
+
+      context.beginPath();
+      context.arc(center + offsetX * scale, center + offsetZ * scale, 4, 0, Math.PI * 2);
+      context.fillStyle = '#f85149';
+      context.fill();
+    }
+
+    context.restore();
+    context.beginPath();
+    context.arc(center, center, radarRadius, 0, Math.PI * 2);
+    context.strokeStyle = 'rgba(88, 166, 255, 0.8)';
+    context.lineWidth = 2;
+    context.stroke();
+
+    context.save();
+    context.translate(center, center);
+    context.rotate(-heading);
+    context.beginPath();
+    context.moveTo(0, -11);
+    context.lineTo(8, 8);
+    context.lineTo(0, 5);
+    context.lineTo(-8, 8);
+    context.closePath();
+    context.fillStyle = '#58a6ff';
+    context.fill();
+    context.strokeStyle = '#f0f6fc';
+    context.lineWidth = 1;
+    context.stroke();
+    context.restore();
+  }
+
   public hide(): void {
     if (this.root) {
       this.root.style.display = 'none';
     }
+    this.updateStaminaBar(false, 1);
     if (this.scopeOverlay) {
       this.scopeOverlay.style.display = 'none';
     }

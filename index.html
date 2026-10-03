@@ -55,6 +55,27 @@
         transform: translate(-50%, -50%);
         pointer-events: none;
       }
+      #hud-stamina {
+        position: absolute;
+        top: 50%;
+        left: calc(50% + 14px);
+        width: 72px;
+        height: 7px;
+        transform: translateY(-50%);
+        display: none;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        border-radius: 4px;
+        background: rgba(13, 17, 23, 0.75);
+        box-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+      }
+      #hud-stamina-fill {
+        width: 100%;
+        height: 100%;
+        background: #3fb950;
+        transition: width 80ms linear;
+      }
       .ch-dot {
         position: absolute;
         top: 50%;
@@ -111,6 +132,15 @@
         gap: 3px;
         font-size: 12px;
         letter-spacing: 0.5px;
+        pointer-events: none;
+      }
+      #hud-radar {
+        position: absolute;
+        top: 112px;
+        left: 16px;
+        width: 168px;
+        height: 168px;
+        border-radius: 50%;
         pointer-events: none;
       }
       .title {
@@ -977,6 +1007,9 @@
           <div class="ch-line ch-right"></div>
           <div class="ch-dot"></div>
         </div>
+        <div id="hud-stamina" role="progressbar" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+          <div id="hud-stamina-fill"></div>
+        </div>
 
         <!-- Sniper Scope Overlay -->
         <div id="scope-overlay">
@@ -1040,7 +1073,7 @@
           <!-- Intermission Banner -->
           <div id="hud-intermission-banner">
             <span class="intermission-text">WAVE CLEARED — AIRDROP ARRIVED</span>
-            <span id="hud-intermission-val" class="intermission-timer">5.0s</span>
+            <span id="hud-intermission-val" class="intermission-timer">10.0s</span>
             <button id="btn-claim-reward" class="btn-claim-reward" style="display: none;" title="Press E or Click to claim supplies">
               📦 CLAIM AIRDROP SUPPLIES [E]
             </button>
@@ -1068,6 +1101,7 @@
           <span class="title">Warzone Strike — Phase 6 &amp; 7</span>
           <span>Infinite Waves &amp; Warlord Boss Battles (Waves 5, 10, 15...)</span>
         </div>
+        <canvas id="hud-radar" width="168" height="168" role="img" aria-label="Radar showing player direction and nearby enemies"></canvas>
 
         <!-- Top-right Debug Controls & Stats Readout -->
         <div id="hud-debug-panel">
@@ -1208,6 +1242,10 @@
               <span class="control-desc">Gerak (Sliding collision)</span>
             </div>
             <div class="control-row">
+              <span class="control-key">Shift</span>
+              <span class="control-desc">Sprint (menggunakan stamina)</span>
+            </div>
+            <div class="control-row">
               <span class="control-key">Mouse Look</span>
               <span class="control-desc">Aim (Pointer Lock)</span>
             </div>
@@ -1290,7 +1328,7 @@
               <div id="supply-modal-timer-fill"></div>
             </div>
             <div class="supply-modal-timer-text">
-              ⏱️ GELOMBANG BERIKUTNYA DALAM: <span id="supply-modal-timer-seconds">7.0s</span>
+              ⏱️ GELOMBANG BERIKUTNYA DALAM: <span id="supply-modal-timer-seconds">10.0s</span>
             </div>
           </div>
           <div id="supply-cards-container" class="supply-cards-grid">

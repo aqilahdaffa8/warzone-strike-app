@@ -52,8 +52,10 @@ export class SupplySelectionModal {
   private picksRemaining: number = 1;
   private totalPicksAllowed: number = 1;
   private onClaimCallback?: (type: SupplyItemType, optionTitle: string) => void;
-  private onCloseCallback?: () => void;
+  private onCloseCallback?: (reason: 'claimed' | 'expired' | 'cancelled') => void;
   private closeTimeout: number | null = null;
+  private selectionTimeRemaining: number = 0;
+  private selectionDuration: number = 10;
 
   constructor() {
     this.modalEl = document.querySelector<HTMLElement>('#supply-modal');
@@ -67,7 +69,7 @@ export class SupplySelectionModal {
     if (this.modalEl) {
       this.modalEl.addEventListener('click', (e) => {
         if (e.target === this.modalEl) {
-          this.close();
+          this.close('cancelled');
         }
       });
     }
@@ -90,13 +92,16 @@ export class SupplySelectionModal {
     isBossWave: boolean,
     loadout: SupplyLoadoutState,
     onClaim: (type: SupplyItemType, optionTitle: string) => void,
-    onClose?: () => void
+    onClose?: (reason: 'claimed' | 'expired' | 'cancelled') => void,
+    selectionDuration: number = 10
   ): void {
     if (!this.modalEl || !this.containerEl) return;
 
     this.isOpen = true;
     this.onClaimCallback = onClaim;
     this.onCloseCallback = onClose;
+    this.selectionDuration = Math.max(0.1, selectionDuration);
+    this.selectionTimeRemaining = this.selectionDuration;
 
     if (this.closeTimeout !== null) {
       window.clearTimeout(this.closeTimeout);
@@ -121,7 +126,7 @@ export class SupplySelectionModal {
     }
 
     if (this.subtitleEl) {
-      this.subtitleEl.textContent = `PILIH ${this.picksRemaining} ITEM DARI SUPPLIES (WAKTU BERJALAN!)`;
+      this.subtitleEl.textContent = `PILIH ${this.picksRemaining} ITEM DARI SUPPLIES`;
     }
 
     this.updatePicksDisplay();
@@ -134,34 +139,28 @@ export class SupplySelectionModal {
   }
 
   /**
-   * Updates real-time timer countdown while modal is open.
+   * Updates the visible 10-second selection timer after the crate has been opened.
+   * The crate's separate pre-interaction lifetime remains hidden.
    */
-  public updateTimer(secondsRemaining: number, totalDuration: number = 7.0): void {
+  public update(dt: number): void {
     if (!this.isOpen) return;
 
-    const clampedSec = Math.max(0, secondsRemaining);
+    this.selectionTimeRemaining = Math.max(0, this.selectionTimeRemaining - dt);
     if (this.timerSecondsEl) {
-      this.timerSecondsEl.textContent = `${clampedSec.toFixed(1)}s`;
+      this.timerSecondsEl.textContent = `${this.selectionTimeRemaining.toFixed(1)}s`;
     }
 
-    if (this.timerFillEl && totalDuration > 0) {
-      const pct = Math.max(0, Math.min(100, (clampedSec / totalDuration) * 100));
+    if (this.timerFillEl && this.selectionDuration > 0) {
+      const pct = Math.max(0, Math.min(100, (this.selectionTimeRemaining / this.selectionDuration) * 100));
       this.timerFillEl.style.width = `${pct}%`;
-      if (pct < 30) {
-        this.timerFillEl.style.background = '#f85149';
-      } else if (pct < 60) {
-        this.timerFillEl.style.background = '#d29922';
-      } else {
-        this.timerFillEl.style.background = 'linear-gradient(90deg, #388bfd, #2ea043)';
-      }
     }
 
-    if (clampedSec <= 0) {
-      this.close();
+    if (this.selectionTimeRemaining <= 0) {
+      this.close('expired');
     }
   }
 
-  public close(): void {
+  public close(reason: 'claimed' | 'expired' | 'cancelled' = 'cancelled'): void {
     if (!this.isOpen) return;
     this.isOpen = false;
     if (this.closeTimeout !== null) {
@@ -172,7 +171,7 @@ export class SupplySelectionModal {
       this.modalEl.style.display = 'none';
     }
     if (this.onCloseCallback) {
-      this.onCloseCallback();
+      this.onCloseCallback(reason);
     }
   }
 
@@ -361,7 +360,7 @@ export class SupplySelectionModal {
         });
       }
       this.closeTimeout = window.setTimeout(() => {
-        this.close();
+        this.close('claimed');
         this.closeTimeout = null;
       }, 350);
     }

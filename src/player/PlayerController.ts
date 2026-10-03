@@ -14,6 +14,16 @@ export class PlayerController {
   // Config parameters
   private speed: number;
   private sprintSpeed: number;
+  private readonly maxStamina: number;
+  private readonly staminaDrainPerSecond: number;
+  private readonly staminaRecoveryPerSecond: number;
+  private stamina: number;
+  private readonly cameraBobFrequency: number;
+  private readonly cameraBobVerticalAmplitude: number;
+  private readonly cameraBobRollAmplitude: number;
+  private cameraBobPhase: number = 0;
+  private cameraBobOffset: number = 0;
+  private cameraBobRoll: number = 0;
   private jumpSpeed: number;
   private gravity: number;
   private height: number;
@@ -67,6 +77,13 @@ export class PlayerController {
 
     this.speed = config.speed;
     this.sprintSpeed = config.sprintSpeed ?? (config.speed * 1.75);
+    this.maxStamina = config.maxStamina;
+    this.staminaDrainPerSecond = config.staminaDrainPerSecond;
+    this.staminaRecoveryPerSecond = config.staminaRecoveryPerSecond;
+    this.stamina = this.maxStamina;
+    this.cameraBobFrequency = config.cameraBobFrequency;
+    this.cameraBobVerticalAmplitude = config.cameraBobVerticalAmplitude;
+    this.cameraBobRollAmplitude = config.cameraBobRollAmplitude;
     this.jumpSpeed = config.jumpSpeed;
     this.gravity = config.gravity;
     this.height = config.height;
@@ -92,6 +109,9 @@ export class PlayerController {
     this.isEnabled = enabled;
     if (!enabled) {
       this.resetInputs();
+      this.cameraBobOffset = 0;
+      this.cameraBobRoll = 0;
+      this.updateCameraTransform();
     }
   }
 
@@ -111,6 +131,18 @@ export class PlayerController {
     this.sensitivityMultiplier = Math.max(0.01, Math.min(2.0, value));
   }
 
+  public isSprintKeyPressed(): boolean {
+    return this.keys.sprint;
+  }
+
+  public getStaminaRatio(): number {
+    return this.stamina / this.maxStamina;
+  }
+
+  public getHeading(): number {
+    return this.yaw;
+  }
+
   public resetInputs(): void {
     this.keys.forward = false;
     this.keys.backward = false;
@@ -126,6 +158,8 @@ export class PlayerController {
     this.isGrounded = true;
     this.yaw = 0;
     this.pitch = 0;
+    this.cameraBobOffset = 0;
+    this.cameraBobRoll = 0;
     this.updateCameraTransform();
   }
 
@@ -275,10 +309,41 @@ export class PlayerController {
     if (this.keys.right) this.tempMove.add(this.tempRight);
     if (this.keys.left) this.tempMove.sub(this.tempRight);
 
-    if (this.tempMove.lengthSq() > 0) {
-      const currentSpeed = this.keys.sprint ? this.sprintSpeed : this.speed;
+    const isMoving = this.tempMove.lengthSq() > 0;
+    const isSprinting = this.keys.sprint && isMoving && this.stamina > 0;
+
+    if (isSprinting) {
+      this.stamina = Math.max(0, this.stamina - this.staminaDrainPerSecond * dt);
+    } else if (!this.keys.sprint) {
+      this.stamina = Math.min(
+        this.maxStamina,
+        this.stamina + this.staminaRecoveryPerSecond * dt
+      );
+    }
+
+    if (isMoving) {
+      const previousX = this.position.x;
+      const previousZ = this.position.z;
+      const currentSpeed = isSprinting ? this.sprintSpeed : this.speed;
       this.tempMove.normalize().multiplyScalar(currentSpeed * dt);
       this.resolveMovement(this.tempMove.x, this.tempMove.z);
+
+      const movedX = this.position.x - previousX;
+      const movedZ = this.position.z - previousZ;
+      if (movedX * movedX + movedZ * movedZ > 0.00000001) {
+        const frequencyMultiplier = isSprinting ? 1.25 : 1;
+        this.cameraBobPhase += dt * this.cameraBobFrequency * frequencyMultiplier * Math.PI * 2;
+        this.cameraBobOffset =
+          Math.sin(this.cameraBobPhase) * this.cameraBobVerticalAmplitude;
+        this.cameraBobRoll =
+          Math.sin(this.cameraBobPhase * 0.5) * this.cameraBobRollAmplitude;
+      } else {
+        this.cameraBobOffset = 0;
+        this.cameraBobRoll = 0;
+      }
+    } else {
+      this.cameraBobOffset = 0;
+      this.cameraBobRoll = 0;
     }
 
     // 2. Vertical movement (jump and gravity)
@@ -328,13 +393,13 @@ export class PlayerController {
   private updateCameraTransform(): void {
     this.camera.position.set(
       this.position.x + this.shakeOffset.x,
-      this.position.y + this.eyeHeight + this.shakeOffset.y,
+      this.position.y + this.eyeHeight + this.shakeOffset.y + this.cameraBobOffset,
       this.position.z + this.shakeOffset.z
     );
     this.camera.rotation.set(
       this.pitch + this.recoilPitch + this.shakeRotOffset.pitch,
       this.yaw + this.recoilYaw,
-      this.shakeRotOffset.roll,
+      this.shakeRotOffset.roll + this.cameraBobRoll,
       'YXZ'
     );
   }

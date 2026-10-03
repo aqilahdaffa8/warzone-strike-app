@@ -17,6 +17,10 @@ export class SupplyCrate {
 
   private readonly scene: THREE.Scene;
   private readonly rewardData: CrateRewardData;
+  private readonly interactionRadius: number;
+  private lifetimeRemaining: number;
+  // Hidden pre-interaction lifetime. This countdown is intentionally never rendered in the HUD/UI.
+  private lifetimePaused: boolean = false;
   private isClaimed: boolean = false;
 
   private beaconMesh: THREE.Mesh;
@@ -27,10 +31,14 @@ export class SupplyCrate {
   constructor(
     position: THREE.Vector3,
     rewardData: CrateRewardData,
-    scene: THREE.Scene
+    scene: THREE.Scene,
+    interactionRadius: number,
+    lifetimeSeconds: number
   ) {
     this.scene = scene;
     this.rewardData = rewardData;
+    this.interactionRadius = interactionRadius;
+    this.lifetimeRemaining = lifetimeSeconds;
     this.isBossCrate = rewardData.isBossReward;
 
     this.group = new THREE.Group();
@@ -89,6 +97,7 @@ export class SupplyCrate {
     this.group.add(this.floatingPrompt);
 
     this.scene.add(this.group);
+    this.setInteractionPromptVisible(false);
   }
 
   private createPromptSprite(): THREE.Sprite {
@@ -147,8 +156,16 @@ export class SupplyCrate {
     return this.rewardData;
   }
 
-  public update(dt: number, playerPos: THREE.Vector3): boolean {
-    if (this.isClaimed) return false;
+  public update(dt: number, playerPos: THREE.Vector3): { isNear: boolean; expired: boolean } {
+    if (this.isClaimed) return { isNear: false, expired: false };
+
+    if (!this.lifetimePaused) {
+      this.lifetimeRemaining = Math.max(0, this.lifetimeRemaining - dt);
+    }
+    if (this.lifetimeRemaining <= 0) {
+      this.setInteractionPromptVisible(false);
+      return { isNear: false, expired: true };
+    }
 
     this.rotationAngle += dt * 2.0;
 
@@ -156,9 +173,19 @@ export class SupplyCrate {
     this.floatingPrompt.position.y = 1.35 + Math.sin(this.rotationAngle) * 0.08;
     this.beaconLight.intensity = 2.5 + Math.sin(this.rotationAngle * 2.5) * 1.0;
 
-    // Check proximity touch (within 2.2 meters auto-allows claim)
+    // Check interaction distance using the configured supply radius.
     const distToPlayer = this.position.distanceTo(playerPos);
-    return distToPlayer <= 2.2;
+    const isNear = distToPlayer <= this.interactionRadius;
+    this.setInteractionPromptVisible(isNear);
+    return { isNear, expired: false };
+  }
+
+  public setInteractionPromptVisible(visible: boolean): void {
+    this.floatingPrompt.visible = visible;
+  }
+
+  public pauseLifetime(): void {
+    this.lifetimePaused = true;
   }
 
   public claim(): CrateRewardData | null {

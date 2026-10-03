@@ -2,6 +2,12 @@ export interface PlayerConfig {
   maxHp: number;
   speed: number;
   sprintSpeed: number;
+  maxStamina: number;
+  staminaDrainPerSecond: number;
+  staminaRecoveryPerSecond: number;
+  cameraBobFrequency: number;
+  cameraBobVerticalAmplitude: number;
+  cameraBobRollAmplitude: number;
   jumpSpeed: number;
   gravity: number;
   height: number;
@@ -127,6 +133,17 @@ export interface LeaderboardConfig {
   submissionTimeoutMs: number;
 }
 
+export interface SupplyDropConfig {
+  interactionRadius: number;
+  hiddenLifetime: number;
+  arenaMinX: number;
+  arenaMaxX: number; 
+  arenaMinZ: number;
+  arenaMaxZ: number;
+  spawnMargin: number;
+  maxSpawnAttempts: number;
+}
+
 export interface ScoreConfig {
   regularKill: number;
   enemyKill?: number;
@@ -160,6 +177,7 @@ export interface GameConfig {
   reward: RewardConfig;
   score: ScoreConfig;
   leaderboard: LeaderboardConfig;
+  supplyDrop: SupplyDropConfig;
 }
 
 /**
@@ -171,6 +189,12 @@ export const GAME_CONFIG: GameConfig = {
     maxHp: 100,
     speed: 6.0, // 6 m/s normal run
     sprintSpeed: 10.5, // 10.5 m/s fast sprint when holding SHIFT
+    maxStamina: 100,
+    staminaDrainPerSecond: 25,
+    staminaRecoveryPerSecond: 18,
+    cameraBobFrequency: 2.0,
+    cameraBobVerticalAmplitude: 0.025,
+    cameraBobRollAmplitude: 0.006,
     jumpSpeed: 5.0, // Optional jump vertical impulse
     gravity: 18.0, // Gravity acceleration in m/s^2
     height: 1.8, // Total player height in meters
@@ -219,7 +243,7 @@ export const GAME_CONFIG: GameConfig = {
     additionalEnemiesPerWave: 2, // +2 enemies per wave
     hpScaling: 0.12, // +12% enemy HP per wave (challenging progression)
     damageScaling: 0.08, // +8% enemy damage per wave
-    intermissionDuration: 7.0, // 7s intermission between waves (airdrop collection window)
+    intermissionDuration: 10.0, // 10s intermission between waves (airdrop collection window)
     minSpawnDistance: 20.0, // 20m minimum spawn distance from player
     maxActiveEnemies: 15, // Maximum 15 active enemies in arena concurrently
     spawnInterval: 0.8, // 0.8s interval between spawning queued enemies
@@ -291,5 +315,15 @@ export const GAME_CONFIG: GameConfig = {
   leaderboard: {
     mockMode: 'success',
     submissionTimeoutMs: 10000,
+  },
+  supplyDrop: {
+    interactionRadius: 2.5,
+    hiddenLifetime: 10.0,
+    arenaMinX: -29,
+    arenaMaxX: 29,
+    arenaMinZ: -29,
+    arenaMaxZ: 29,
+    spawnMargin: 1.0,
+    maxSpawnAttempts: 30,
   },
 };
