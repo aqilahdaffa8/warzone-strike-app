@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Arena } from '../environment/Arena';
-import { GAME_CONFIG } from '../config/gameConfig';
+import { GAME_CONFIG, EnemyConfig } from '../config/gameConfig';
 import { GameStateType } from './GameState';
 import { PlayerHealth } from '../player/PlayerHealth';
 import { PlayerController } from '../player/PlayerController';
@@ -8,9 +8,21 @@ import { HUD } from '../ui/HUD';
 import { PauseMenu } from '../ui/PauseMenu';
 import { Sniper } from '../weapons/Sniper';
 import { Knife } from '../weapons/Knife';
+import { Bazooka } from '../weapons/Bazooka';
+import { AssaultRifle } from '../weapons/AssaultRifle';
 import { WeaponType, DamageableTarget } from '../weapons/Weapon';
 import { TargetDummy } from '../environment/TargetDummy';
 import { Enemy } from '../enemies/Enemy';
+import { Boss } from '../enemies/Boss';
+import { EnemyProjectileManager } from '../enemies/EnemyProjectileManager';
+import { ScoreManager } from '../scoring/ScoreManager';
+import { WaveManager } from '../wave/WaveManager';
+import { SpawnManager } from '../wave/SpawnManager';
+import { GameOverScreen } from '../ui/GameOverScreen';
+import { GrenadeManager } from '../weapons/Grenade';
+import { SupplyDropManager } from '../wave/SupplyDropManager';
+import { SupplySelectionModal, SupplyItemType, SupplyLoadoutState } from '../ui/SupplySelectionModal';
+import { isBossWave } from '../wave/WaveConfig';
 
 export class Game {
   private readonly canvas: HTMLCanvasElement;
@@ -24,16 +36,31 @@ export class Game {
   private readonly playerController: PlayerController;
   private readonly sniper: Sniper;
   private readonly knife: Knife;
+  private readonly bazooka: Bazooka;
+  private readonly akm: AssaultRifle;
+  private readonly m4: AssaultRifle;
+  private readonly grenadeManager: GrenadeManager;
+  private readonly supplyDropManager: SupplyDropManager;
+  private readonly supplyModal: SupplySelectionModal;
+  private readonly projectileManager: EnemyProjectileManager;
+  private readonly scoreManager: ScoreManager;
   private activeWeaponType: WeaponType = 'sniper';
+  private isLeftMouseDown: boolean = false;
+
+  private readonly spawnManager: SpawnManager;
+  private readonly waveManager: WaveManager;
 
   private readonly targetDummies: TargetDummy[] = [];
   private readonly enemies: Enemy[] = [];
   private enemySpawnCounter: number = 0;
   private readonly hud: HUD;
   private readonly pauseMenu: PauseMenu;
+  private readonly gameOverScreen: GameOverScreen;
 
   private state: GameStateType = 'MENU';
   private isRunning: boolean = false;
+  private isVictory: boolean = false;
+  private wasPointerLocked: boolean = false;
 
   private readonly startOverlay: HTMLElement | null;
   private readonly startBtn: HTMLButtonElement | null;
@@ -83,23 +110,132 @@ export class Game {
       GAME_CONFIG.player
     );
 
-    // 7. Weapon Systems (Sniper & Knife)
-    this.sniper = new Sniper(GAME_CONFIG.sniper, this.camera, this.scene);
+    // 7. Weapon Systems (Sniper, Knife, Bazooka, AKM & M4)
+    this.sniper = new Sniper(GAME_CONFIG.sniper, this.camera, this.scene, this.playerController);
     this.knife = new Knife(GAME_CONFIG.knife, this.camera, this.scene);
+    this.bazooka = new Bazooka(GAME_CONFIG.bazooka, this.camera, this.scene);
+    this.akm = new AssaultRifle('akm', GAME_CONFIG.akm, this.camera, this.scene, this.playerController);
+    this.m4 = new AssaultRifle('m4', GAME_CONFIG.m4, this.camera, this.scene, this.playerController);
 
-    // Set initial active weapon to Sniper
+    // Initial loadout: Sniper active, all other weapons inactive/locked
     this.sniper.setActive(true);
     this.knife.setActive(false);
+    this.bazooka.setActive(false);
+    this.akm.setActive(false);
+    this.m4.setActive(false);
 
-    // 8. Environment Target Dummies & Enemies
+    // 8. Enemy Projectiles Manager
+    this.projectileManager = new EnemyProjectileManager(this.scene);
+
+    // 9. Score Manager
+    this.scoreManager = new ScoreManager(GAME_CONFIG.score);
+    this.scoreManager.onScoreChanged = (score, delta, reason) => {
+      this.hud.updateScore(score, delta, reason);
+    };
+
+    // 10. Grenades & Explosions with Screen Shake Feedback
+    this.grenadeManager = new GrenadeManager(GAME_CONFIG.grenade, this.scene, colliders);
+    this.grenadeManager.onExplosion = (pos) => {
+      this.playerController.triggerExplosionShake(pos, 32.0);
+    };
+    this.bazooka.onExplosion = (pos) => {
+      this.playerController.triggerExplosionShake(pos, 35.0);
+    };
+
+    // 11. Tactical Supply Selection Modal
+    this.supplyModal = new SupplySelectionModal();
+
+    // 12. Supply Drops & Wave Rewards
+    this.supplyDropManager = new SupplyDropManager(
+      GAME_CONFIG.reward,
+      this.scene,
+      this.playerHealth,
+      this.sniper,
+      this.grenadeManager,
+      this.bazooka,
+      {
+        onRewardClaimed: (_data, msg) => {
+          void _data;
+          this.hud.showRewardNotice(msg);
+          this.hud.setClaimRewardAvailable(false);
+          this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
+          this.hud.setBazookaUnlocked(this.bazooka.getIsUnlocked());
+          this.hud.setAkmUnlocked(this.akm.getIsUnlocked());
+          this.hud.setM4Unlocked(this.m4.getIsUnlocked());
+        },
+        onCrateAvailable: () => {
+          this.hud.setClaimRewardAvailable(true);
+        },
+        onRequestSelectionModal: (waveNumber, isBossWave) => {
+          this.openSupplyModal(waveNumber, isBossWave);
+        },
+      }
+    );
+
+    // 13. Environment Target Dummies
     this.spawnTargetDummies();
-    this.spawnInitialEnemies();
 
-    // 9. UI Systems
+    // 14. Spawn Manager & Wave Manager (Endless Waves & Multi-Bosses)
+    this.spawnManager = new SpawnManager(GAME_CONFIG.wave, GAME_CONFIG.enemy, colliders);
+    this.waveManager = new WaveManager(
+      GAME_CONFIG.wave,
+      GAME_CONFIG.boss,
+      GAME_CONFIG.enemy,
+      this.spawnManager,
+      {
+        onWaveStarted: (waveNumber, isBoss, totalEnemies) => {
+          this.hud.hideIntermission();
+          this.hud.hideBossBar();
+          this.hud.updateWaveInfo(waveNumber, isBoss, totalEnemies, totalEnemies);
+        },
+        onEnemySpawnRequested: (spawnPos, config) => {
+          return this.spawnWaveEnemy(spawnPos, config);
+        },
+        onBossSpawnRequested: (spawnPos, waveNumber) => {
+          return this.spawnWaveBoss(spawnPos, waveNumber);
+        },
+        onIntermissionTick: (secondsRemaining) => {
+          this.hud.showIntermission(secondsRemaining);
+          if (this.supplyModal.getIsOpen()) {
+            this.supplyModal.updateTimer(secondsRemaining, GAME_CONFIG.wave.intermissionDuration);
+          }
+        },
+        onIntermissionComplete: () => {
+          this.hud.hideIntermission();
+          if (this.supplyModal.getIsOpen()) {
+            this.supplyModal.close();
+          }
+          if (this.supplyDropManager.hasAvailableCrate()) {
+            this.supplyDropManager.clearCrate();
+          }
+        },
+        onWaveCompleted: (waveNumber) => {
+          this.scoreManager.addWaveClear(waveNumber);
+          const isBoss = isBossWave(waveNumber, GAME_CONFIG.boss);
+          // Spawn physical 3D supply crate in arena; player presses E to open
+          this.supplyDropManager.spawnWaveSupplyCrate(this.playerController.position, isBoss, waveNumber);
+          this.hud.setClaimRewardAvailable(true);
+        },
+        onBossSpawned: (boss) => {
+          this.hud.showBossBar(boss.bossTitle, boss.getHp(), boss.getMaxHp());
+        },
+        onBossDefeated: () => {
+          // If no more bosses active in wave, hide boss bar
+          if (this.waveManager.getActiveBosses().length === 0) {
+            this.hud.hideBossBar();
+          }
+        },
+      }
+    );
+
+    // 12. UI Systems
     this.hud = new HUD(this.playerHealth, {
       onReloadRequested: () => {
-        if (this.state === 'PLAYING' && this.activeWeaponType === 'sniper') {
-          this.sniper.reload();
+        if (this.state === 'PLAYING') {
+          if (this.activeWeaponType === 'sniper') this.sniper.reload();
+          else if (this.activeWeaponType === 'bazooka') this.bazooka.reload();
+          else if (this.activeWeaponType === 'akm') this.akm.reload();
+          else if (this.activeWeaponType === 'm4') this.m4.reload();
         }
       },
       onResetAmmoRequested: () => {
@@ -107,6 +243,27 @@ export class Game {
       },
       onResetDummiesRequested: () => {
         this.targetDummies.forEach((d) => d.reset());
+      },
+      onSkipWaveRequested: () => {
+        // Fast forward wave for QA testing: defeat all living regular enemies
+        const living = this.enemies.filter((e) => !e.getIsDead());
+        for (const enemy of living) {
+          enemy.takeDamage(99999, false);
+        }
+      },
+      onSpawnBossRequested: () => {
+        // Force spawn boss immediately for testing
+        const bossRadius = GAME_CONFIG.enemy.radius * 2.0;
+        const bossHeight = GAME_CONFIG.enemy.height * 2.0;
+        const livingPositions = this.enemies.filter((e) => !e.getIsDead()).map((e) => e.position);
+        const spawnPos = this.spawnManager.getValidSpawnPosition(
+          this.playerController.position,
+          livingPositions,
+          bossRadius,
+          bossHeight
+        );
+        const boss = this.spawnWaveBoss(spawnPos, Math.max(5, this.waveManager.getWaveNumber()));
+        this.hud.showBossBar(boss.bossTitle, boss.getHp(), boss.getMaxHp());
       },
       onSpawnEnemyRequested: () => {
         this.spawnEnemy();
@@ -119,11 +276,36 @@ export class Game {
           this.switchWeapon(type);
         }
       },
+      onThrowGrenadeRequested: () => {
+        if (this.state === 'PLAYING') {
+          this.throwGrenade();
+        }
+      },
+      onClaimRewardRequested: () => {
+        if (this.state === 'PLAYING' && this.supplyDropManager.hasAvailableCrate() && !this.supplyModal.getIsOpen()) {
+          const wave = this.waveManager.getWaveNumber();
+          const isBoss = isBossWave(wave, GAME_CONFIG.boss);
+          this.openSupplyModal(wave, isBoss);
+        }
+      },
     });
+
+    this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
 
     this.pauseMenu = new PauseMenu(this.playerController, this.playerHealth);
     this.pauseMenu.setOnResume(() => {
-      this.canvas.requestPointerLock();
+      this.enterGame();
+    });
+
+    this.gameOverScreen = new GameOverScreen();
+    this.gameOverScreen.setOnRestart(() => {
+      this.restartGame();
+    });
+
+    this.playerHealth.onDeath(() => {
+      if (this.state === 'PLAYING') {
+        this.handlePlayerDeath();
+      }
     });
 
     this.startOverlay = document.querySelector<HTMLElement>('#start-overlay');
@@ -213,13 +395,53 @@ export class Game {
     this.scene.add(dummy4.group);
   }
 
+  public spawnWaveEnemy(position: THREE.Vector3, config: EnemyConfig): Enemy {
+    this.enemySpawnCounter++;
+    const enemy = new Enemy(
+      `enemy-${this.enemySpawnCounter}`,
+      position,
+      config,
+      this.arena.getColliders(),
+      this.scene
+    );
+    enemy.onDeath((killedEnemy, isHeadshot) => {
+      this.scoreManager.addRegularKill(isHeadshot);
+      this.waveManager.notifyEnemyKilled(killedEnemy);
+    });
+    this.enemies.push(enemy);
+    return enemy;
+  }
+
+  public spawnWaveBoss(position: THREE.Vector3, waveNumber: number): Boss {
+    this.enemySpawnCounter++;
+    const boss = new Boss(
+      `boss-${this.enemySpawnCounter}`,
+      position,
+      waveNumber,
+      GAME_CONFIG.boss,
+      GAME_CONFIG.enemy,
+      this.arena.getColliders(),
+      this.scene
+    );
+    boss.onDeath((killedBoss, isHeadshot) => {
+      this.scoreManager.addBossKill(isHeadshot);
+      this.waveManager.notifyEnemyKilled(killedBoss);
+    });
+    this.enemies.push(boss);
+    return boss;
+  }
+
   public spawnEnemy(position?: THREE.Vector3): Enemy {
     this.enemySpawnCounter++;
-    const spawnPos = position || new THREE.Vector3(
-      (Math.random() - 0.5) * 26,
-      0,
-      (Math.random() - 0.5) * 20 - 4
-    );
+    let spawnPos: THREE.Vector3;
+    if (position) {
+      spawnPos = position;
+    } else {
+      // Find a safe position that does not intersect arena obstacles
+      const livingPositions = this.enemies.filter((e) => !e.getIsDead()).map((e) => e.position);
+      spawnPos = this.spawnManager.getValidSpawnPosition(this.playerController.position, livingPositions);
+    }
+
     const enemy = new Enemy(
       `enemy-${this.enemySpawnCounter}`,
       spawnPos,
@@ -227,6 +449,10 @@ export class Game {
       this.arena.getColliders(),
       this.scene
     );
+    enemy.onDeath((killedEnemy, isHeadshot) => {
+      this.scoreManager.addRegularKill(isHeadshot);
+      this.waveManager.notifyEnemyKilled(killedEnemy);
+    });
     this.enemies.push(enemy);
     return enemy;
   }
@@ -238,20 +464,100 @@ export class Game {
     this.enemies.length = 0;
   }
 
-  private spawnInitialEnemies(): void {
-    // Spawn 2 hostile enemies in the arena for Phase 5 verification
-    // Enemy 1: Approaching from left flank at (-10, 0, 4)
-    this.spawnEnemy(new THREE.Vector3(-10, 0, 4));
-    // Enemy 2: Approaching from right flank at (12, 0, 2)
-    this.spawnEnemy(new THREE.Vector3(12, 0, 2));
-  }
-
   private getTargets(): DamageableTarget[] {
     return [...this.targetDummies, ...this.enemies];
   }
 
+  public openSupplyModal(waveNumber: number, isBossWave: boolean): void {
+    const loadout: SupplyLoadoutState = {
+      hasBazooka: this.bazooka.getIsUnlocked(),
+      hasAkm: this.akm.getIsUnlocked(),
+      hasM4: this.m4.getIsUnlocked(),
+      currentHp: this.playerHealth.getHp(),
+      maxHp: this.playerHealth.getMaxHp(),
+      grenadeCount: this.grenadeManager.getGrenadeCount(),
+    };
+
+    let claimedAny = false;
+
+    this.supplyModal.open(
+      waveNumber,
+      isBossWave,
+      loadout,
+      (itemType, itemTitle) => {
+        claimedAny = true;
+        this.handleSupplyClaim(itemType, isBossWave);
+        this.hud.showRewardNotice(`ITEM DITERIMA: ${itemTitle}`);
+      },
+      () => {
+        if (claimedAny) {
+          this.supplyDropManager.consumeActiveCrate();
+          this.hud.setClaimRewardAvailable(false);
+        }
+      }
+    );
+
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  }
+
+  private handleSupplyClaim(type: SupplyItemType, isBossWave: boolean): void {
+    switch (type) {
+      case 'health_pack': {
+        const healAmt = isBossWave ? 100 : 45;
+        this.playerHealth.heal(healAmt);
+        break;
+      }
+      case 'frag_grenade': {
+        const bombsToAdd = isBossWave ? 3 : 2;
+        this.grenadeManager.addGrenades(bombsToAdd);
+        this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
+        break;
+      }
+      case 'bazooka': {
+        this.bazooka.unlock();
+        this.bazooka.addReserveAmmo(3);
+        this.hud.setBazookaUnlocked(true);
+        break;
+      }
+      case 'akm': {
+        this.akm.unlock();
+        this.akm.addReserveAmmo(60);
+        this.hud.setAkmUnlocked(true);
+        break;
+      }
+      case 'm4': {
+        this.m4.unlock();
+        this.m4.addReserveAmmo(90);
+        this.hud.setM4Unlocked(true);
+        break;
+      }
+      case 'magazine_upgrade': {
+        this.sniper.upgradeMagazine(2);
+        this.akm.upgradeMagazine(10);
+        this.m4.upgradeMagazine(10);
+        break;
+      }
+      case 'sniper_ammo': {
+        this.sniper.addReserveAmmo(25);
+        break;
+      }
+      case 'rifle_ammo': {
+        this.akm.addReserveAmmo(60);
+        this.m4.addReserveAmmo(90);
+        break;
+      }
+    }
+  }
+
   public switchWeapon(type: WeaponType): void {
     if (this.activeWeaponType === type) return;
+
+    // Check unlock condition for weapons
+    if (type === 'bazooka' && !this.bazooka.getIsUnlocked()) return;
+    if (type === 'akm' && !this.akm.getIsUnlocked()) return;
+    if (type === 'm4' && !this.m4.getIsUnlocked()) return;
 
     if (this.activeWeaponType === 'sniper') {
       // Cleanly cancel sniper scope and reload so state is never corrupted
@@ -265,6 +571,12 @@ export class Game {
       this.playerController.setSensitivityMultiplier(1.0);
     } else if (this.activeWeaponType === 'knife') {
       this.knife.setActive(false);
+    } else if (this.activeWeaponType === 'bazooka') {
+      this.bazooka.setActive(false);
+    } else if (this.activeWeaponType === 'akm') {
+      this.akm.setActive(false);
+    } else if (this.activeWeaponType === 'm4') {
+      this.m4.setActive(false);
     }
 
     this.activeWeaponType = type;
@@ -273,6 +585,12 @@ export class Game {
       this.sniper.setActive(true);
     } else if (type === 'knife') {
       this.knife.setActive(true);
+    } else if (type === 'bazooka') {
+      this.bazooka.setActive(true);
+    } else if (type === 'akm') {
+      this.akm.setActive(true);
+    } else if (type === 'm4') {
+      this.m4.setActive(true);
     }
 
     this.hud.setActiveWeapon(type);
@@ -294,22 +612,48 @@ export class Game {
 
     if (this.startBtn) {
       this.startBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        this.canvas.requestPointerLock();
+        this.enterGame();
       });
     }
 
     if (this.startOverlay) {
-      this.startOverlay.addEventListener('click', () => {
-        this.canvas.requestPointerLock();
+      this.startOverlay.addEventListener('click', (e) => {
+        if (e.target === this.startOverlay) {
+          this.enterGame();
+        }
       });
     }
 
     this.canvas.addEventListener('click', () => {
-      if (this.state !== 'PLAYING') {
-        this.canvas.requestPointerLock();
+      if (this.state === 'PLAYING') {
+        if (this.supplyModal.getIsOpen()) return;
+        if (document.pointerLockElement !== this.canvas) {
+          try {
+            this.canvas.requestPointerLock();
+          } catch (_) {}
+        }
+      } else if (this.state === 'PAUSED' || this.state === 'MENU') {
+        this.enterGame();
       }
     });
+  }
+
+  public enterGame(): void {
+    if (this.state !== 'GAME_OVER') {
+      this.setState('PLAYING');
+      try {
+        const res = this.canvas.requestPointerLock() as unknown;
+        if (res && typeof (res as Promise<void>).catch === 'function') {
+          (res as Promise<void>).catch((err) => {
+            console.warn('Pointer lock request was postponed or denied by browser:', err);
+          });
+        }
+      } catch (err) {
+        console.warn('Pointer lock error:', err);
+      }
+    }
   }
 
   private onWheel = (e: WheelEvent): void => {
@@ -318,26 +662,56 @@ export class Game {
     }
     e.preventDefault();
 
-    // Scroll switches weapon (sniper <-> knife)
-    if (this.activeWeaponType === 'sniper') {
-      this.switchWeapon('knife');
-    } else {
-      this.switchWeapon('sniper');
-    }
-  };
+    const order: WeaponType[] = ['sniper', 'knife'];
+    if (this.bazooka.getIsUnlocked()) order.push('bazooka');
+    if (this.akm.getIsUnlocked()) order.push('akm');
+    if (this.m4.getIsUnlocked()) order.push('m4');
 
-  private onMouseDown = (e: MouseEvent): void => {
-    if (this.state !== 'PLAYING' || document.pointerLockElement !== this.canvas) {
+    const currentIndex = order.indexOf(this.activeWeaponType);
+    if (currentIndex === -1) {
+      this.switchWeapon('sniper');
       return;
     }
 
-    // Left click: Fire Sniper or Slash Knife depending on active weapon
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const nextIndex = (currentIndex + direction + order.length) % order.length;
+    this.switchWeapon(order[nextIndex]);
+  };
+
+  private onMouseDown = (e: MouseEvent): void => {
+    if (this.state !== 'PLAYING' || document.pointerLockElement !== this.canvas || this.supplyModal.getIsOpen()) {
+      return;
+    }
+
+    // Left click: Fire weapon or slash knife
     if (e.button === 0) {
+      this.isLeftMouseDown = true;
       const targets = this.getTargets();
       if (this.activeWeaponType === 'sniper') {
-        this.sniper.fire(this.arena.getRaycastObstacles(), targets);
+        const res = this.sniper.fire(this.arena.getRaycastObstacles(), targets);
+        if (res.fired) {
+          this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+        }
       } else if (this.activeWeaponType === 'knife') {
-        this.knife.attack(this.arena.getRaycastObstacles(), targets);
+        const res = this.knife.attack(this.arena.getRaycastObstacles(), targets);
+        if (res.attacked && res.hit) {
+          this.scoreManager.recordShot(true, !!res.isHeadshot);
+        }
+      } else if (this.activeWeaponType === 'bazooka') {
+        const res = this.bazooka.fire();
+        if (res.fired) {
+          this.scoreManager.recordShot(false, false);
+        }
+      } else if (this.activeWeaponType === 'akm') {
+        const res = this.akm.fire(this.arena.getRaycastObstacles(), targets);
+        if (res.fired) {
+          this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+        }
+      } else if (this.activeWeaponType === 'm4') {
+        const res = this.m4.fire(this.arena.getRaycastObstacles(), targets);
+        if (res.fired) {
+          this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+        }
       }
     }
 
@@ -352,6 +726,9 @@ export class Game {
   };
 
   private onMouseUp = (e: MouseEvent): void => {
+    if (e.button === 0) {
+      this.isLeftMouseDown = false;
+    }
     if (this.state !== 'PLAYING') return;
 
     if (e.button === 2 && this.activeWeaponType === 'sniper') {
@@ -367,7 +744,16 @@ export class Game {
   private onKeyDown = (e: KeyboardEvent): void => {
     if (this.state !== 'PLAYING') return;
 
-    // Weapon switching: Key 1 for Sniper, Key 2 for Knife
+    // When supply selection modal is open, ignore game hotkeys and allow quick exit via Escape or E
+    if (this.supplyModal.getIsOpen()) {
+      if (e.code === 'Escape' || e.code === 'KeyE') {
+        this.supplyModal.close();
+      }
+      return;
+    }
+
+    // Weapon switching:
+    // 1: Sniper, 2: Knife, 3: Bazooka, 4: AKM, 5: M4
     if (e.code === 'Digit1' || e.code === 'Numpad1') {
       this.switchWeapon('sniper');
       return;
@@ -378,24 +764,162 @@ export class Game {
       return;
     }
 
-    // R: Reload (Active only when Sniper is equipped)
+    if (e.code === 'Digit3' || e.code === 'Numpad3') {
+      if (this.bazooka.getIsUnlocked()) {
+        this.switchWeapon('bazooka');
+      }
+      return;
+    }
+
+    if (e.code === 'Digit4' || e.code === 'Numpad4') {
+      if (this.akm.getIsUnlocked()) {
+        this.switchWeapon('akm');
+      }
+      return;
+    }
+
+    if (e.code === 'Digit5' || e.code === 'Numpad5') {
+      if (this.m4.getIsUnlocked()) {
+        this.switchWeapon('m4');
+      }
+      return;
+    }
+
+    // R: Reload (Active for Sniper, Bazooka, AKM & M4)
     if (e.code === 'KeyR') {
       if (this.activeWeaponType === 'sniper') {
         this.sniper.reload();
+      } else if (this.activeWeaponType === 'bazooka') {
+        this.bazooka.reload();
+      } else if (this.activeWeaponType === 'akm') {
+        this.akm.reload();
+      } else if (this.activeWeaponType === 'm4') {
+        this.m4.reload();
       }
+      return;
+    }
+
+    // G: Throw Frag Grenade
+    if (e.code === 'KeyG') {
+      this.throwGrenade();
+      return;
+    }
+
+    // E: Open Tactical Supply Selection Modal
+    if (e.code === 'KeyE') {
+      if (this.supplyDropManager.hasAvailableCrate() && !this.supplyModal.getIsOpen()) {
+        const wave = this.waveManager.getWaveNumber();
+        const isBoss = isBossWave(wave, GAME_CONFIG.boss);
+        this.openSupplyModal(wave, isBoss);
+      }
+      return;
     }
   };
+
+  public throwGrenade(): void {
+    if (this.state !== 'PLAYING') return;
+    const thrown = this.grenadeManager.throwGrenade(this.camera);
+    if (thrown) {
+      this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
+    }
+  }
 
   private onPointerLockChange = (): void => {
     const isLocked = document.pointerLockElement === this.canvas;
     if (isLocked) {
-      this.setState('PLAYING');
+      this.wasPointerLocked = true;
+      if (this.state === 'PAUSED' || this.state === 'MENU') {
+        this.setState('PLAYING');
+      }
     } else {
-      if (this.state === 'PLAYING') {
+      // If supply selection modal is open, do not trigger pause menu; game time keeps running
+      if (this.supplyModal.getIsOpen()) {
+        return;
+      }
+      // Only pause if player was previously pointer-locked and lost lock (e.g. Esc pressed)
+      if (this.state === 'PLAYING' && this.wasPointerLocked) {
+        this.wasPointerLocked = false;
         this.setState('PAUSED');
       }
     }
   };
+
+  public handlePlayerDeath(): void {
+    if (this.state === 'GAME_OVER') return;
+    this.isVictory = false;
+    if (this.supplyModal.getIsOpen()) {
+      this.supplyModal.close();
+    }
+    this.scoreManager.finalizeSession();
+    this.setState('GAME_OVER');
+  }
+
+  public handleGameVictory(_totalWaves?: number): void {
+    void _totalWaves;
+    if (this.state === 'GAME_OVER') return;
+    this.isVictory = true;
+    if (this.supplyModal.getIsOpen()) {
+      this.supplyModal.close();
+    }
+    this.scoreManager.finalizeSession();
+    this.setState('GAME_OVER');
+  }
+
+  public restartGame(): void {
+    // 1. Hide Game Over Screen
+    this.gameOverScreen.hide();
+    this.isVictory = false;
+
+    // 2. Reset Player State & Position
+    this.playerHealth.reset();
+    const startPos = GAME_CONFIG.player.startingPosition;
+    this.playerController.resetPosition(startPos.x, startPos.y, startPos.z);
+    this.playerController.resetInputs();
+
+    // 3. Reset Weapons, Projectiles & Munitions (Default: Sniper, Knife, 1 Bomb)
+    this.sniper.resetAmmo();
+    this.sniper.resetStats();
+    this.sniper.setScoped(false);
+    this.sniper.cancelReload();
+    this.bazooka.lock();
+    this.bazooka.resetAmmo();
+    this.akm.lock();
+    this.akm.resetAmmo();
+    this.m4.lock();
+    this.m4.resetAmmo();
+    this.grenadeManager.reset(1);
+    this.projectileManager.clear();
+    this.hud.updateGrenadeCount(1);
+    this.hud.setBazookaUnlocked(false);
+    this.hud.setAkmUnlocked(false);
+    this.hud.setM4Unlocked(false);
+    this.switchWeapon('sniper');
+
+    // 4. Reset Dummies & Clear all active enemies and supply crates
+    this.clearEnemies();
+    this.supplyDropManager.clearCrate();
+    if (this.supplyModal.getIsOpen()) {
+      this.supplyModal.close();
+    }
+    for (const dummy of this.targetDummies) {
+      dummy.reset();
+    }
+
+    // 5. Reset Wave Manager, Score Manager & HUD
+    this.waveManager.reset();
+    this.scoreManager.reset(true);
+    this.hud.updateScore(0);
+    this.hud.hideBossBar();
+    this.hud.hideIntermission();
+    this.hud.setClaimRewardAvailable(false);
+
+    // 6. Enter Playing state & start Wave 1
+    this.setState('PLAYING');
+    try {
+      this.canvas.requestPointerLock();
+    } catch (_) {}
+    this.waveManager.startFirstWave();
+  }
 
   public setState(newState: GameStateType): void {
     this.state = newState;
@@ -404,12 +928,17 @@ export class Game {
       case 'PLAYING':
         if (this.startOverlay) this.startOverlay.style.display = 'none';
         this.pauseMenu.hide();
+        this.gameOverScreen.hide();
         this.hud.show();
         this.playerController.setEnabled(true);
+        if (this.waveManager.getState() === 'NOT_STARTED') {
+          this.waveManager.startFirstWave();
+        }
         break;
 
       case 'PAUSED':
         this.pauseMenu.show();
+        this.gameOverScreen.hide();
         this.playerController.setEnabled(false);
         if (this.activeWeaponType === 'sniper') {
           this.sniper.setScoped(false); // Unscope when paused
@@ -419,11 +948,43 @@ export class Game {
       case 'MENU':
         if (this.startOverlay) this.startOverlay.style.display = 'flex';
         this.pauseMenu.hide();
+        this.gameOverScreen.hide();
         this.hud.hide();
         this.playerController.setEnabled(false);
         if (this.activeWeaponType === 'sniper') {
           this.sniper.setScoped(false);
         }
+        break;
+
+      case 'GAME_OVER':
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+        this.playerController.setEnabled(false);
+        if (this.activeWeaponType === 'sniper') {
+          this.sniper.setScoped(false);
+          this.sniper.cancelReload();
+        }
+        this.pauseMenu.hide();
+        this.hud.hide();
+
+        this.scoreManager.finalizeSession();
+        const payload = this.scoreManager.generatePayload();
+        const sniperStats = this.sniper.getStats();
+
+        this.gameOverScreen.show({
+          score: payload.score,
+          waveReached: payload.waveReached,
+          enemiesDefeated: payload.kills,
+          bossesKilled: payload.bossesKilled,
+          shotsFired: sniperStats.shotsFired,
+          shotsHit: sniperStats.shotsHit,
+          headshots: payload.headshots,
+          accuracy: payload.accuracy,
+          durationSeconds: payload.durationSeconds,
+          sessionId: payload.sessionId,
+          isVictory: this.isVictory,
+        });
         break;
     }
   }
@@ -465,12 +1026,36 @@ export class Game {
 
   public update(dt: number): void {
     if (this.state === 'PLAYING') {
+      if (this.playerHealth.isDead()) {
+        this.handlePlayerDeath();
+        return;
+      }
+
+      // Continuous full-auto firing for Assault Rifles while mouse is held
+      if (this.isLeftMouseDown && document.pointerLockElement === this.canvas) {
+        const targets = this.getTargets();
+        if (this.activeWeaponType === 'akm') {
+          const res = this.akm.fire(this.arena.getRaycastObstacles(), targets);
+          if (res.fired) {
+            this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+          }
+        } else if (this.activeWeaponType === 'm4') {
+          const res = this.m4.fire(this.arena.getRaycastObstacles(), targets);
+          if (res.fired) {
+            this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+          }
+        }
+      }
+
       // 1. Update Player Movement & Look
       this.playerController.update(dt);
 
       // 2. Update Weapons
       this.sniper.update(dt, this.playerController);
       this.knife.update(dt);
+      this.bazooka.update(dt, this.arena.getRaycastObstacles(), this.getTargets());
+      this.akm.update(dt);
+      this.m4.update(dt);
 
       // 3. Update Target Dummies (Billboarding health bars, damage popups, respawn timers)
       for (let i = 0; i < this.targetDummies.length; i++) {
@@ -478,7 +1063,11 @@ export class Game {
       }
 
       // 4. Update Hostile Enemies (Pursuit, Collision Sliding, Melee Attacks, Death Cleanup)
-      const otherEnemyPositions: THREE.Vector3[] = this.enemies.map((e) => e.position);
+      const livingEnemies = this.enemies.filter((e) => !e.getIsDead());
+      const livingEnemyPositions: THREE.Vector3[] = livingEnemies.map((e) => e.position);
+
+      const obstacles = this.arena.getRaycastObstacles();
+
       for (let i = this.enemies.length - 1; i >= 0; i--) {
         const enemy = this.enemies[i];
         enemy.update(
@@ -486,23 +1075,98 @@ export class Game {
           this.playerController.position,
           this.playerHealth,
           this.camera.position,
-          otherEnemyPositions
+          livingEnemyPositions,
+          this.projectileManager,
+          obstacles
         );
         if (enemy.isFullyRemoved()) {
           this.enemies.splice(i, 1);
         }
       }
 
-      // 5. Update HUD with active weapon state
+      // Update Enemy Ranged Projectiles (flight, collisions against obstacles, and hits on player)
+      this.projectileManager.update(
+        dt,
+        this.playerController.position,
+        this.playerHealth,
+        obstacles
+      );
+
+      // 5. Update WaveManager (Spawning queue, wave scaling, intermission countdown, boss transitions)
+      this.waveManager.update(dt, this.playerController.position, livingEnemies);
+
+      // Keep real-time supply modal timer synced during intermission
+      if (this.supplyModal.getIsOpen()) {
+        this.supplyModal.updateTimer(
+          this.waveManager.getIntermissionRemaining(),
+          GAME_CONFIG.wave.intermissionDuration
+        );
+      }
+
+      // 6. Update Tactical Munitions & Wave Supply Drops
+      this.grenadeManager.update(dt, this.getTargets());
+      this.supplyDropManager.update(dt, this.playerController.position);
+      this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
+
+      // Update active boss HP on HUD if engaged
+      const currentBoss = this.waveManager.getCurrentBoss();
+      if (currentBoss && !currentBoss.getIsDead()) {
+        this.hud.updateBossHp(currentBoss.getHp(), currentBoss.getMaxHp());
+      }
+
+      // Update Wave and Enemies remaining on HUD
+      this.hud.updateWaveInfo(
+        this.waveManager.getWaveNumber(),
+        this.waveManager.isCurrentWaveBoss(),
+        this.waveManager.getRemainingEnemies(),
+        this.waveManager.getTotalRegularEnemies()
+      );
+
+      // 7. Update HUD with active weapon state
+      const currentLivingCount = livingEnemies.length;
+      const bazookaAmmo = this.bazooka.getAmmo();
+      const activeAmmo =
+        this.activeWeaponType === 'sniper'
+          ? this.sniper.getAmmo()
+          : this.activeWeaponType === 'bazooka'
+          ? { inMag: bazookaAmmo.current, reserve: bazookaAmmo.reserve, maxMag: 1 }
+          : this.activeWeaponType === 'akm'
+          ? this.akm.getAmmo()
+          : this.activeWeaponType === 'm4'
+          ? this.m4.getAmmo()
+          : null;
+
+      const isReloading =
+        this.activeWeaponType === 'sniper'
+          ? this.sniper.getIsReloading()
+          : this.activeWeaponType === 'bazooka'
+          ? this.bazooka.getIsReloading()
+          : this.activeWeaponType === 'akm'
+          ? this.akm.getIsReloading()
+          : this.activeWeaponType === 'm4'
+          ? this.m4.getIsReloading()
+          : false;
+
+      const reloadProgress =
+        this.activeWeaponType === 'sniper'
+          ? this.sniper.getReloadProgress()
+          : this.activeWeaponType === 'bazooka'
+          ? this.bazooka.getReloadProgress()
+          : this.activeWeaponType === 'akm'
+          ? this.akm.getReloadProgress()
+          : this.activeWeaponType === 'm4'
+          ? this.m4.getReloadProgress()
+          : 0;
+
       this.hud.updateWeaponDisplay(
         this.activeWeaponType,
-        this.activeWeaponType === 'sniper' ? this.sniper.getAmmo() : null,
+        activeAmmo,
         this.sniper.getStats(),
-        this.sniper.getIsReloading(),
-        this.sniper.getReloadProgress(),
+        isReloading,
+        reloadProgress,
         this.sniper.getIsScoped(),
         this.knife.getCooldownProgress(),
-        this.enemies.length
+        currentLivingCount
       );
     }
   }
@@ -523,6 +1187,13 @@ export class Game {
     this.playerController.dispose();
     this.sniper.dispose();
     this.knife.dispose();
+    this.bazooka.dispose();
+    this.akm.dispose();
+    this.m4.dispose();
+    this.supplyModal.dispose();
+    this.grenadeManager.dispose();
+    this.projectileManager.dispose();
+    this.supplyDropManager.dispose();
     for (const dummy of this.targetDummies) {
       dummy.dispose();
     }
@@ -530,7 +1201,9 @@ export class Game {
       enemy.dispose();
     }
     this.enemies.length = 0;
+    this.waveManager.reset();
     this.hud.dispose();
+    this.gameOverScreen.dispose();
     this.renderer.dispose();
   }
 }

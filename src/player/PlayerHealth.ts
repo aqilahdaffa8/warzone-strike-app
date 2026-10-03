@@ -13,6 +13,9 @@ export class PlayerHealth {
     this.currentHp = this.maxHp;
   }
 
+  private hasFiredDeath: boolean = false;
+  private readonly deathListeners: Set<() => void> = new Set();
+
   public getHp(): number {
     return this.currentHp;
   }
@@ -30,6 +33,17 @@ export class PlayerHealth {
 
     this.currentHp = Math.max(0, this.currentHp - amount);
     this.notify();
+
+    if (this.currentHp === 0 && !this.hasFiredDeath) {
+      this.hasFiredDeath = true;
+      for (const listener of this.deathListeners) {
+        try {
+          listener();
+        } catch (err) {
+          console.error('Error in PlayerHealth death listener:', err);
+        }
+      }
+    }
   }
 
   public heal(amount: number): void {
@@ -41,7 +55,15 @@ export class PlayerHealth {
 
   public reset(): void {
     this.currentHp = this.maxHp;
+    this.hasFiredDeath = false;
     this.notify();
+  }
+
+  public onDeath(callback: () => void): () => void {
+    this.deathListeners.add(callback);
+    return () => {
+      this.deathListeners.delete(callback);
+    };
   }
 
   public onHealthChange(callback: HealthChangeCallback): () => void {

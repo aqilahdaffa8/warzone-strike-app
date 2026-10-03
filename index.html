@@ -120,6 +120,223 @@
         text-transform: uppercase;
       }
 
+      /* Top-center Wave & Boss Status */
+      #hud-top-center {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      #hud-wave-badge {
+        background: rgba(13, 17, 23, 0.9);
+        border: 1px solid rgba(88, 166, 255, 0.4);
+        border-radius: 6px;
+        padding: 6px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      }
+
+      #hud-score-badge {
+        background: rgba(13, 17, 23, 0.9);
+        border: 1px solid rgba(227, 179, 65, 0.4);
+        border-radius: 6px;
+        padding: 6px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      }
+      .score-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #e3b341;
+        letter-spacing: 1px;
+      }
+      .score-val {
+        font-size: 16px;
+        font-weight: 800;
+        color: #f0f6fc;
+        font-family: monospace;
+      }
+      .score-popup {
+        position: absolute;
+        top: 55px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 16px;
+        font-weight: 800;
+        color: #e3b341;
+        background: rgba(13, 17, 23, 0.85);
+        padding: 3px 12px;
+        border-radius: 4px;
+        border: 1px solid rgba(227, 179, 65, 0.4);
+        text-shadow: 0 0 10px rgba(227, 179, 65, 0.6);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.3s ease;
+      }
+      .score-popup.active {
+        opacity: 1;
+        transform: translate(-50%, -6px);
+      }
+
+      .wave-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: #58a6ff;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+
+      .wave-enemies {
+        font-size: 12px;
+        font-weight: 600;
+        color: #c9d1d9;
+        letter-spacing: 0.5px;
+      }
+
+      /* Intermission Banner */
+      #hud-intermission-banner {
+        background: rgba(22, 27, 34, 0.95);
+        border: 1px solid #388bfd;
+        border-radius: 6px;
+        padding: 10px 24px;
+        text-align: center;
+        box-shadow: 0 0 20px rgba(56, 139, 253, 0.35);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        animation: pulse-glow 1.5s infinite alternate;
+      }
+
+      @keyframes pulse-glow {
+        from { box-shadow: 0 0 10px rgba(56, 139, 253, 0.2); }
+        to { box-shadow: 0 0 24px rgba(56, 139, 253, 0.55); }
+      }
+
+      .intermission-text {
+        font-size: 13px;
+        font-weight: 700;
+        color: #f0f6fc;
+        letter-spacing: 1px;
+      }
+
+      .intermission-timer {
+        font-size: 22px;
+        font-weight: 800;
+        color: #58a6ff;
+        font-family: monospace;
+      }
+
+      .btn-claim-reward {
+        margin-top: 6px;
+        background: linear-gradient(135deg, #238636, #2ea043);
+        color: #ffffff;
+        border: 1px solid #3fb950;
+        border-radius: 6px;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        pointer-events: auto;
+        box-shadow: 0 0 12px rgba(46, 160, 67, 0.4);
+        transition: transform 0.1s ease, background 0.15s ease;
+      }
+      .btn-claim-reward:hover {
+        background: linear-gradient(135deg, #2ea043, #3fb950);
+        transform: scale(1.04);
+      }
+      .btn-claim-reward:active {
+        transform: scale(0.97);
+      }
+
+      .hud-reward-notice {
+        position: absolute;
+        top: 85px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(13, 17, 23, 0.95);
+        border: 1px solid #3fb950;
+        border-radius: 6px;
+        padding: 8px 18px;
+        color: #3fb950;
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 20px rgba(63, 185, 80, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        z-index: 25;
+      }
+      .hud-reward-notice.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(5px);
+      }
+
+      /* Boss Health Bar */
+      #hud-boss-container {
+        width: 440px;
+        max-width: 90vw;
+        background: rgba(13, 17, 23, 0.95);
+        border: 2px solid #f85149;
+        border-radius: 8px;
+        padding: 8px 14px;
+        box-shadow: 0 0 25px rgba(248, 81, 73, 0.45);
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .boss-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .boss-name {
+        font-size: 12px;
+        font-weight: 800;
+        color: #f85149;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+
+      .boss-hp-text {
+        font-size: 11px;
+        font-weight: 700;
+        color: #f0f6fc;
+        font-family: monospace;
+      }
+
+      .boss-bar-track {
+        width: 100%;
+        height: 10px;
+        background: #21262d;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+      }
+
+      .boss-bar-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #d29922, #f85149);
+        transition: width 0.15s ease-out;
+      }
+
       /* Top-right Debug Controls */
       #hud-debug-panel {
         position: absolute;
@@ -478,6 +695,88 @@
         accent-color: #58a6ff;
         cursor: pointer;
       }
+
+      /* Game Over Screen */
+      #game-over-overlay {
+        background: rgba(10, 12, 16, 0.92);
+        backdrop-filter: blur(12px);
+      }
+      .modal-card.game-over-card {
+        border: 1px solid rgba(248, 81, 73, 0.4);
+        box-shadow: 0 0 40px rgba(248, 81, 73, 0.25), 0 20px 40px rgba(0, 0, 0, 0.8);
+      }
+      .game-over-card .modal-header h1 {
+        color: #f85149;
+        font-size: 26px;
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(248, 81, 73, 0.5);
+      }
+      .modal-card.game-over-card.victory {
+        border: 1px solid rgba(63, 185, 80, 0.6);
+        box-shadow: 0 0 50px rgba(63, 185, 80, 0.35), 0 20px 40px rgba(0, 0, 0, 0.8);
+      }
+      .modal-card.game-over-card.victory .modal-header h1 {
+        color: #3fb950;
+        text-shadow: 0 0 14px rgba(63, 185, 80, 0.6);
+      }
+      .game-over-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        background: #0d1117;
+        border: 1px solid #21262d;
+        border-radius: 6px;
+        padding: 16px;
+        text-align: left;
+      }
+      .go-stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .go-stat-item.full-width {
+        grid-column: span 2;
+        border-bottom: 1px solid #21262d;
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+      }
+      .go-stat-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .go-stat-val {
+        font-size: 20px;
+        font-weight: 800;
+        color: #f0f6fc;
+        font-family: monospace;
+      }
+      .go-stat-val.highlight {
+        color: #58a6ff;
+        font-size: 24px;
+      }
+      .btn-danger {
+        background: #da3633;
+        color: #ffffff;
+        border: 1px solid rgba(240, 246, 252, 0.15);
+        padding: 14px 24px;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+        box-shadow: 0 4px 14px rgba(218, 54, 51, 0.4);
+      }
+      .btn-danger:hover {
+        background: #f85149;
+        box-shadow: 0 6px 20px rgba(248, 81, 73, 0.6);
+      }
+      .btn-danger:active {
+        transform: scale(0.98);
+      }
     
       #damage-vignette {
         position: absolute;
@@ -490,6 +789,139 @@
         opacity: 0;
         transition: opacity 0.15s ease-out;
         z-index: 45;
+      }
+
+      /* Supply Selection Modal */
+      #supply-modal {
+        background: rgba(10, 13, 18, 0.88);
+        backdrop-filter: blur(10px);
+      }
+      .supply-modal-card {
+        max-width: 860px !important;
+        width: 92% !important;
+        border: 1px solid rgba(88, 166, 255, 0.35) !important;
+        box-shadow: 0 0 35px rgba(88, 166, 255, 0.2), 0 20px 40px rgba(0, 0, 0, 0.8) !important;
+      }
+      .supply-modal-timer-bar {
+        width: 100%;
+        margin: 10px 0 6px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      #supply-modal-timer-track {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      #supply-modal-timer-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #388bfd, #2ea043);
+        transition: width 0.08s linear, background 0.3s ease;
+      }
+      .supply-modal-timer-text {
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: #f0883e;
+        letter-spacing: 0.8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .supply-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+      }
+      .supply-card {
+        background: rgba(22, 27, 34, 0.95);
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        gap: 8px;
+      }
+      .supply-card:hover {
+        border-color: #58a6ff;
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(88, 166, 255, 0.25);
+        background: rgba(33, 38, 45, 0.95);
+      }
+      .supply-card-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .supply-card-svg {
+        width: 100%;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 2px 0;
+      }
+      .supply-card-svg svg {
+        width: 100%;
+        height: 100%;
+        max-height: 72px;
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+      }
+      .supply-card-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #f0f6fc;
+      }
+      .supply-card-desc {
+        font-size: 11px;
+        color: #8b949e;
+        line-height: 1.35;
+        flex: 1;
+      }
+      .supply-card-bonus {
+        font-size: 12px;
+        font-weight: 700;
+        color: #e3b341;
+        margin-top: 4px;
+        font-family: monospace;
+      }
+      .btn-claim-item {
+        background: #1f6feb;
+        color: #ffffff;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 6px;
+        transition: background 0.15s;
+      }
+      .supply-card:hover .btn-claim-item {
+        background: #388bfd;
+      }
+      .supply-modal-footer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 6px;
       }
     </style>
   </head>
@@ -553,10 +985,51 @@
           </svg>
         </div>
 
+        <!-- Top-center Wave & Boss Status HUD -->
+        <div id="hud-top-center">
+          <!-- Wave & Score Status Badges -->
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <div id="hud-wave-badge">
+              <span id="hud-wave-text" class="wave-title">WAVE 1 / 15</span>
+              <span id="hud-wave-enemies-text" class="wave-enemies">ENEMIES: 5 / 5</span>
+            </div>
+            <div id="hud-score-badge">
+              <span class="score-title">SCORE</span>
+              <span id="hud-score-val" class="score-val">0</span>
+            </div>
+          </div>
+          <div id="hud-score-popup" class="score-popup">+100 ENEMY KILL</div>
+
+          <!-- Intermission Banner -->
+          <div id="hud-intermission-banner">
+            <span class="intermission-text">WAVE CLEARED — AIRDROP ARRIVED</span>
+            <span id="hud-intermission-val" class="intermission-timer">5.0s</span>
+            <button id="btn-claim-reward" class="btn-claim-reward" style="display: none;" title="Press E or Click to claim supplies">
+              📦 CLAIM AIRDROP SUPPLIES [E]
+            </button>
+          </div>
+
+          <!-- Boss Health Bar -->
+          <div id="hud-boss-container">
+            <div class="boss-header">
+              <span id="hud-boss-name" class="boss-name">WARLORD JUGGERNAUT [BOSS]</span>
+              <span id="hud-boss-hp-val" class="boss-hp-text">1000 / 1000</span>
+            </div>
+            <div class="boss-bar-track">
+              <div id="hud-boss-hp-fill" class="boss-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Supply Reward Notification Banner -->
+        <div id="hud-reward-notice" class="hud-reward-notice">
+          <span id="hud-reward-notice-text">📦 SUPPLIES RECEIVED: +25 AMMO | +40 HP | +1 GRENADE</span>
+        </div>
+
         <!-- Top-left info -->
         <div id="info-overlay">
-          <span class="title">Warzone Strike — Phase 5</span>
-          <span>Hostile Enemies Active (Chase, Melee Attack, Health &amp; Death)</span>
+          <span class="title">Warzone Strike — Phase 6 &amp; 7</span>
+          <span>Infinite Waves &amp; Warlord Boss Battles (Waves 5, 10, 15...)</span>
         </div>
 
         <!-- Top-right Debug Controls & Stats Readout -->
@@ -587,15 +1060,24 @@
           <div class="debug-buttons">
             <button id="btn-debug-switch-sniper" class="btn-debug" title="Hotkey: 1">[1] Sniper</button>
             <button id="btn-debug-switch-knife" class="btn-debug" title="Hotkey: 2">[2] Knife</button>
+            <button id="btn-debug-switch-bazooka" class="btn-debug" title="Hotkey: 3">[3] Bazooka</button>
+          </div>
+          <div class="debug-buttons">
+            <button id="btn-debug-throw-grenade" class="btn-debug" title="Hotkey: G">Frag (G)</button>
+            <button id="btn-debug-claim-supplies" class="btn-debug" title="Hotkey: E">Claim (E)</button>
           </div>
           <div class="debug-buttons">
             <button id="btn-debug-reload" class="btn-debug" title="Hotkey: R">Reload (R)</button>
             <button id="btn-debug-reset-ammo" class="btn-debug">Reset Ammo</button>
-            <button id="btn-debug-reset-dummies" class="btn-debug">Respawn Dummies</button>
+            <button id="btn-debug-reset-dummies" class="btn-debug">Dummies</button>
           </div>
-                    <div class="debug-buttons">
+          <div class="debug-buttons">
+            <button id="btn-debug-skip-wave" class="btn-debug" title="Skip current wave / trigger intermission">Next Wave</button>
+            <button id="btn-debug-spawn-boss" class="btn-debug" title="Force spawn Boss immediately">Spawn Boss</button>
+          </div>
+          <div class="debug-buttons">
             <button id="btn-debug-spawn-enemy" class="btn-debug" title="Spawn an active hostile enemy">+ Enemy</button>
-            <button id="btn-debug-clear-enemies" class="btn-debug" title="Clear all active enemies">Clear Enemies</button>
+            <button id="btn-debug-clear-enemies" class="btn-debug" title="Clear all active enemies">Clear All</button>
           </div>
           <div class="debug-buttons">
             <button id="btn-debug-damage" class="btn-debug" title="Keyboard hotkey: H or K">-15 HP (H)</button>
@@ -624,6 +1106,22 @@
             <span class="slot-key">2</span>
             <span>KNIFE</span>
           </div>
+          <div class="weapon-slot" id="slot-bazooka" title="Press 3 or Scroll" style="display: none;">
+            <span class="slot-key">3</span>
+            <span>RPG-7</span>
+          </div>
+          <div class="weapon-slot" id="slot-akm" title="Press 4 or Scroll" style="display: none;">
+            <span class="slot-key">4</span>
+            <span>AKM</span>
+          </div>
+          <div class="weapon-slot" id="slot-m4" title="Press 5 or Scroll" style="display: none;">
+            <span class="slot-key">5</span>
+            <span>M4</span>
+          </div>
+          <div class="weapon-slot" id="slot-grenade" title="Press G to throw tactical frag grenade">
+            <span class="slot-key">G</span>
+            <span id="slot-grenade-text">BOMB: 1</span>
+          </div>
         </div>
 
         <!-- Bottom-right Ammo -->
@@ -648,17 +1146,17 @@
         <div class="modal-card">
           <div class="modal-header">
             <h1>WARZONE STRIKE</h1>
-            <p>Phase 4 — Sniper Rifle, Tactical Knife &amp; Weapon Switching</p>
+            <p>Phase 6 &amp; 7 — Infinite Waves, Difficulty Scaling &amp; Warlord Boss Encounters</p>
           </div>
 
           <div class="modal-controls">
             <div class="control-row">
-              <span class="control-key">1 / 2 / Scroll</span>
-              <span class="control-desc">Ganti Senjata (Sniper ↔ Knife)</span>
+              <span class="control-key">1 / 2 / 3 / Scroll</span>
+              <span class="control-desc">Ganti Senjata (Sniper ↔ Knife ↔ RPG-7 Bazooka)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Left Click</span>
-              <span class="control-desc">Attack (Sniper Fire / Knife Slash 2m)</span>
+              <span class="control-desc">Attack (Sniper Fire / Knife Slash / Bazooka Rocket)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Right Click</span>
@@ -675,6 +1173,14 @@
             <div class="control-row">
               <span class="control-key">Mouse Look</span>
               <span class="control-desc">Aim (Pointer Lock)</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">G</span>
+              <span class="control-desc">Lempar Granat Peledak (AoE Explosion)</span>
+            </div>
+            <div class="control-row">
+              <span class="control-key">E</span>
+              <span class="control-desc">Klaim Peti Suplai (Ammo, HP, Granat)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Space</span>
@@ -732,6 +1238,81 @@
           </div>
 
           <button id="btn-resume" class="btn-primary">RESUME MISSION</button>
+        </div>
+      </div>
+
+      <!-- Tactical Supply Selection Modal -->
+      <div id="supply-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card supply-modal-card">
+          <div class="modal-header">
+            <h1 id="supply-modal-title">SUPPLIES CRATE</h1>
+            <p id="supply-modal-subtitle">PILIH ITEM DARI SUPPLIES (WAKTU BERJALAN!)</p>
+          </div>
+          <div class="supply-modal-timer-bar">
+            <div id="supply-modal-timer-track">
+              <div id="supply-modal-timer-fill"></div>
+            </div>
+            <div class="supply-modal-timer-text">
+              ⏱️ GELOMBANG BERIKUTNYA DALAM: <span id="supply-modal-timer-seconds">7.0s</span>
+            </div>
+          </div>
+          <div id="supply-cards-container" class="supply-cards-grid">
+            <!-- Dynamic supply cards generated by SupplySelectionModal -->
+          </div>
+          <div class="supply-modal-footer">
+            <span id="supply-picks-remaining">Sisa Pilihan Item: 1 / 1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div id="game-over-overlay" class="modal-overlay" style="display: none;">
+        <div id="game-over-card" class="modal-card game-over-card">
+          <div class="modal-header">
+            <h1 id="go-title">MISSION FAILED</h1>
+            <p id="go-subtitle">Operator K.I.A. — Critical Vital Signs Terminated</p>
+          </div>
+
+          <div class="game-over-stats">
+            <div class="go-stat-item full-width">
+              <span class="go-stat-label">Final Score</span>
+              <span id="go-stat-score" class="go-stat-val highlight" style="color: #e3b341; font-size: 28px;">0</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Wave Reached</span>
+              <span id="go-stat-wave" class="go-stat-val">1 / 15</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Mission Time</span>
+              <span id="go-stat-duration" class="go-stat-val">00:00</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Enemies Neutralized</span>
+              <span id="go-stat-kills" class="go-stat-val">0</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Bosses Destroyed</span>
+              <span id="go-stat-bosses" class="go-stat-val">0</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Precision Headshots</span>
+              <span id="go-stat-headshots" class="go-stat-val">0</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Weapon Accuracy</span>
+              <span id="go-stat-accuracy" class="go-stat-val">0.0%</span>
+            </div>
+            <div class="go-stat-item">
+              <span class="go-stat-label">Shots Fired</span>
+              <span id="go-stat-shots" class="go-stat-val">0</span>
+            </div>
+            <div class="go-stat-item full-width" style="border: none; padding-top: 4px; margin: 0;">
+              <span class="go-stat-label">Session ID</span>
+              <span id="go-stat-session" class="go-stat-val" style="font-size: 11px; color: #8b949e; word-break: break-all;">-</span>
+            </div>
+          </div>
+
+          <button id="btn-restart-game" class="btn-danger">REDEPLOY / PLAY AGAIN</button>
         </div>
       </div>
     </div>

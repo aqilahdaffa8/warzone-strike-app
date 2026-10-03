@@ -2,17 +2,8 @@ import * as THREE from 'three';
 import { SniperConfig } from '../config/gameConfig';
 import { PlayerController } from '../player/PlayerController';
 
-import { Weapon, WeaponType, DamageableTarget } from './Weapon';
-
-export interface FireResult {
-  fired: boolean;
-  reason?: 'cooldown' | 'empty' | 'reloading';
-  hit?: boolean;
-  isHeadshot?: boolean;
-  damage?: number;
-  hitPoint?: THREE.Vector3;
-  target?: DamageableTarget;
-}
+import { Weapon, WeaponType, DamageableTarget, FireResult } from './Weapon';
+export type { FireResult };
 
 export interface WeaponStats {
   shotsFired: number;
@@ -35,6 +26,7 @@ export class Sniper implements Weapon {
   // Ammo & Reload State
   private ammoInMag: number;
   private reserveAmmo: number;
+  private currentMagCapacity: number;
   private fireTimer: number = 0;
   private isReloading: boolean = false;
   private reloadTimer: number = 0;
@@ -74,11 +66,20 @@ export class Sniper implements Weapon {
     timer: number;
   }[] = [];
 
-  constructor(config: SniperConfig, camera: THREE.PerspectiveCamera, scene: THREE.Scene) {
+  private readonly playerController?: PlayerController;
+
+  constructor(
+    config: SniperConfig,
+    camera: THREE.PerspectiveCamera,
+    scene: THREE.Scene,
+    playerController?: PlayerController
+  ) {
     this.config = config;
     this.camera = camera;
     this.scene = scene;
+    this.playerController = playerController;
 
+    this.currentMagCapacity = config.magazineCapacity;
     this.ammoInMag = config.magazineCapacity;
     this.reserveAmmo = config.reserveAmmo;
 
@@ -226,6 +227,9 @@ export class Sniper implements Weapon {
     // Weapon visual feedback: recoil kick
     this.recoilOffset = 0.08;
     this.recoilPitch = 0.06;
+    if (this.playerController) {
+      this.playerController.addRecoil(0.038, 0.005);
+    }
     this.triggerMuzzleFlash();
 
     // 1. Setup Camera Center Ray
@@ -302,9 +306,19 @@ export class Sniper implements Weapon {
     return hitResult;
   }
 
+  public upgradeMagazineCapacity(amount: number = 2): number {
+    this.currentMagCapacity += amount;
+    this.ammoInMag = this.currentMagCapacity; // Immediately replenish magazine to full new capacity
+    return this.currentMagCapacity;
+  }
+
+  public getMagazineCapacity(): number {
+    return this.currentMagCapacity;
+  }
+
   public reload(): boolean {
     if (this.isReloading) return false;
-    if (this.ammoInMag >= this.config.magazineCapacity) return false;
+    if (this.ammoInMag >= this.currentMagCapacity) return false;
     if (this.reserveAmmo <= 0) return false;
 
     this.isReloading = true;
@@ -344,7 +358,7 @@ export class Sniper implements Weapon {
     return {
       inMag: this.ammoInMag,
       reserve: this.reserveAmmo,
-      maxMag: this.config.magazineCapacity,
+      maxMag: this.currentMagCapacity,
     };
   }
 
@@ -383,11 +397,23 @@ export class Sniper implements Weapon {
   }
 
   public resetAmmo(): void {
+    this.currentMagCapacity = this.config.magazineCapacity;
     this.ammoInMag = this.config.magazineCapacity;
     this.reserveAmmo = this.config.reserveAmmo;
     this.isReloading = false;
     this.reloadTimer = 0;
     this.fireTimer = 0;
+  }
+
+  public addReserveAmmo(amount: number): void {
+    if (amount <= 0) return;
+    // Allow stockpiling up to 60 reserve rounds
+    this.reserveAmmo = Math.min(60, this.reserveAmmo + amount);
+  }
+
+  public upgradeMagazine(additionalCapacity: number): void {
+    this.currentMagCapacity += additionalCapacity;
+    this.ammoInMag += additionalCapacity;
   }
 
   public resetStats(): void {
@@ -452,7 +478,7 @@ export class Sniper implements Weapon {
       this.reloadTimer -= dt;
       if (this.reloadTimer <= 0) {
         this.isReloading = false;
-        const needed = this.config.magazineCapacity - this.ammoInMag;
+        const needed = this.currentMagCapacity - this.ammoInMag;
         const toLoad = Math.min(needed, this.reserveAmmo);
         this.ammoInMag += toLoad;
         this.reserveAmmo -= toLoad;

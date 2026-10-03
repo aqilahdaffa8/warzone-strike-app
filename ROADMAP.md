@@ -74,11 +74,11 @@ Setiap fase diakhiri dengan: `npm run build` lolos, `npm run dev` tanpa error co
 **Target:** enemy placeholder (body + head hitbox), mengejar pemain, melee attack dengan cooldown ke `PlayerHealth`, health, death.
 
 **Acceptance:**
-- [ ] Enemy mendekati pemain
-- [ ] Enemy menyerang dalam range dan health pemain berkurang
-- [ ] Enemy menerima damage dari sniper dan knife, termasuk headshot
-- [ ] Enemy mati dan dibersihkan dari scene (tanpa memory leak jelas)
-- [ ] Enemy tidak menembus dinding
+- [x] Enemy mendekati pemain
+- [x] Enemy menyerang dalam range dan health pemain berkurang
+- [x] Enemy menerima damage dari sniper dan knife, termasuk headshot
+- [x] Enemy mati dan dibersihkan dari scene (tanpa memory leak jelas)
+- [x] Enemy tidak menembus dinding
 
 ---
 
@@ -87,12 +87,12 @@ Setiap fase diakhiri dengan: `npm run build` lolos, `npm run dev` tanpa error co
 **Target:** `SpawnManager`, `WaveManager`, intermission, scaling jumlah/HP/damage, batas enemy aktif, `minSpawnDistance`, semua nilai dari config.
 
 **Acceptance:**
-- [ ] Wave dimulai, enemy di-generate sesuai config
-- [ ] Wave berakhir saat semua enemy mati; wave berikutnya mulai setelah intermission
-- [ ] Wave berlanjut tanpa batas
-- [ ] Tidak ada enemy spawn lebih dekat dari `minSpawnDistance`
-- [ ] Enemy aktif tidak melebihi batas
-- [ ] Difficulty naik terkontrol; nilai bisa diubah dari config tanpa menyentuh logic
+- [x] Wave dimulai, enemy di-generate sesuai config
+- [x] Wave berakhir saat semua enemy mati; wave berikutnya mulai setelah intermission
+- [x] Wave berlanjut tanpa batas
+- [x] Tidak ada enemy spawn lebih dekat dari `minSpawnDistance`
+- [x] Enemy aktif tidak melebihi batas
+- [x] Difficulty naik terkontrol; nilai bisa diubah dari config tanpa menyentuh logic
 
 ---
 
@@ -101,10 +101,10 @@ Setiap fase diakhiri dengan: `npm run build` lolos, `npm run dev` tanpa error co
 **Target:** boss dari enemy placeholder, spawn di wave kelipatan 5 setelah enemy biasa habis, scaling HP dan ukuran, size cap.
 
 **Acceptance:**
-- [ ] Boss muncul di wave 5, 10, 15, dst.
-- [ ] Boss muncul hanya setelah enemy biasa wave itu mati
-- [ ] HP dan ukuran naik tiap kemunculan; ukuran tidak melewati cap
-- [ ] Setelah boss mati: intermission lalu wave berikutnya
+- [x] Boss muncul di wave 5, 10, 15, dst.
+- [x] Boss muncul hanya setelah enemy biasa wave itu mati
+- [x] HP dan ukuran naik tiap kemunculan; ukuran tidak melewati cap
+- [x] Setelah boss mati: intermission lalu wave berikutnya
 
 ---
 
@@ -113,12 +113,12 @@ Setiap fase diakhiri dengan: `npm run build` lolos, `npm run dev` tanpa error co
 **Target:** `ScoreManager` (kill, headshot bonus, boss kill), pencatatan statistik sesi (kills, headshots, bossesKilled, accuracy, durasi, wave), game over saat health habis, `GameState`, main menu, pause menu, game over screen, HUD lengkap (health, ammo, wave, score), tombol retry/main lagi.
 
 **Acceptance:**
-- [ ] Score bertambah sesuai event
-- [ ] Health habis → game over tampil dan game berhenti
-- [ ] State machine berpindah benar (MENU → PLAYING → PAUSED/GAME_OVER)
-- [ ] Data akhir sesi (semua field payload) dapat dikumpulkan
-- [ ] Memulai game baru mereset state dengan bersih (tanpa sisa enemy/score/timer lama)
-- [ ] Game Over screen dan tombol main lagi berfungsi tanpa bergantung pada jaringan atau hasil submission
+- [x] Score bertambah sesuai event
+- [x] Health habis → game over tampil dan game berhenti
+- [x] State machine berpindah benar (MENU → PLAYING → PAUSED/GAME_OVER)
+- [x] Data akhir sesi (semua field payload) dapat dikumpulkan
+- [x] Memulai game baru mereset state dengan bersih (tanpa sisa enemy/score/timer lama)
+- [x] Game Over screen dan tombol main lagi berfungsi tanpa bergantung pada jaringan atau hasil submission
 
 ---
 

@@ -13,6 +13,7 @@ export class PlayerController {
 
   // Config parameters
   private speed: number;
+  private sprintSpeed: number;
   private jumpSpeed: number;
   private gravity: number;
   private height: number;
@@ -29,6 +30,15 @@ export class PlayerController {
   private pitch: number = 0;
   private isEnabled: boolean = false;
 
+  // Recoil and screen shake
+  private recoilPitch: number = 0;
+  private recoilYaw: number = 0;
+  private shakeIntensity: number = 0;
+  private shakeTimer: number = 0;
+  private shakeDuration: number = 0.4;
+  private shakeOffset = new THREE.Vector3();
+  private shakeRotOffset = { pitch: 0, roll: 0 };
+
   // Input tracking
   private readonly keys = {
     forward: false,
@@ -36,6 +46,7 @@ export class PlayerController {
     left: false,
     right: false,
     jump: false,
+    sprint: false,
   };
 
   // Reusable instances to prevent per-frame garbage collection
@@ -55,6 +66,7 @@ export class PlayerController {
     this.colliders = colliders;
 
     this.speed = config.speed;
+    this.sprintSpeed = config.sprintSpeed ?? (config.speed * 1.75);
     this.jumpSpeed = config.jumpSpeed;
     this.gravity = config.gravity;
     this.height = config.height;
@@ -105,6 +117,7 @@ export class PlayerController {
     this.keys.left = false;
     this.keys.right = false;
     this.keys.jump = false;
+    this.keys.sprint = false;
   }
 
   public resetPosition(x: number, y: number, z: number): void {
@@ -137,6 +150,10 @@ export class PlayerController {
       case 'Space':
         this.keys.jump = true;
         break;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        this.keys.sprint = true;
+        break;
       case 'KeyH':
       case 'KeyK':
         // Debug shortcut: reduce health by 15 for acceptance verification
@@ -165,6 +182,10 @@ export class PlayerController {
         break;
       case 'Space':
         this.keys.jump = false;
+        break;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        this.keys.sprint = false;
         break;
     }
   };
@@ -255,7 +276,8 @@ export class PlayerController {
     if (this.keys.left) this.tempMove.sub(this.tempRight);
 
     if (this.tempMove.lengthSq() > 0) {
-      this.tempMove.normalize().multiplyScalar(this.speed * dt);
+      const currentSpeed = this.keys.sprint ? this.sprintSpeed : this.speed;
+      this.tempMove.normalize().multiplyScalar(currentSpeed * dt);
       this.resolveMovement(this.tempMove.x, this.tempMove.z);
     }
 
@@ -276,17 +298,74 @@ export class PlayerController {
       }
     }
 
-    // 3. Keep camera in sync with player position and eye height
+    // 3. Smooth recoil recovery
+    const recoverySpeed = 14.0;
+    this.recoilPitch = THREE.MathUtils.lerp(this.recoilPitch, 0, Math.min(1.0, dt * recoverySpeed));
+    this.recoilYaw = THREE.MathUtils.lerp(this.recoilYaw, 0, Math.min(1.0, dt * recoverySpeed));
+
+    // 4. Update screen shake
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= dt;
+      const progress = Math.max(0, this.shakeTimer / this.shakeDuration);
+      const currentAmp = this.shakeIntensity * progress;
+      this.shakeOffset.set(
+        (Math.random() - 0.5) * 2 * currentAmp * 0.15,
+        (Math.random() - 0.5) * 2 * currentAmp * 0.15,
+        (Math.random() - 0.5) * 2 * currentAmp * 0.15
+      );
+      this.shakeRotOffset.pitch = (Math.random() - 0.5) * 2 * currentAmp * 0.035;
+      this.shakeRotOffset.roll = (Math.random() - 0.5) * 2 * currentAmp * 0.035;
+    } else {
+      this.shakeOffset.set(0, 0, 0);
+      this.shakeRotOffset.pitch = 0;
+      this.shakeRotOffset.roll = 0;
+    }
+
+    // 5. Keep camera in sync with player position, eye height, recoil, and shake
     this.updateCameraTransform();
   }
 
   private updateCameraTransform(): void {
     this.camera.position.set(
-      this.position.x,
-      this.position.y + this.eyeHeight,
-      this.position.z
+      this.position.x + this.shakeOffset.x,
+      this.position.y + this.eyeHeight + this.shakeOffset.y,
+      this.position.z + this.shakeOffset.z
     );
-    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    this.camera.rotation.set(
+      this.pitch + this.recoilPitch + this.shakeRotOffset.pitch,
+      this.yaw + this.recoilYaw,
+      this.shakeRotOffset.roll,
+      'YXZ'
+    );
+  }
+
+  /**
+   * Adds weapon firing recoil kick (pitch kick upward, optional horizontal sway).
+   */
+  public addRecoil(pitchKick: number, yawSway: number = 0): void {
+    this.recoilPitch = Math.min(0.25, this.recoilPitch + pitchKick);
+    this.recoilYaw += (Math.random() - 0.5) * 2 * yawSway;
+  }
+
+  /**
+   * Triggers an intense screen shake (e.g. from nearby explosions).
+   */
+  public addScreenShake(intensity: number, duration: number = 0.4): void {
+    this.shakeIntensity = Math.min(1.5, Math.max(this.shakeIntensity, intensity));
+    this.shakeDuration = duration;
+    this.shakeTimer = duration;
+  }
+
+  /**
+   * Triggers screen shake based on distance to an explosion (grenades or bazooka rockets).
+   */
+  public triggerExplosionShake(explosionPos: THREE.Vector3, maxRadius: number = 32.0): void {
+    const dist = this.position.distanceTo(explosionPos);
+    if (dist < maxRadius) {
+      const falloff = 1.0 - dist / maxRadius;
+      const intensity = Math.max(0.2, falloff * 0.9);
+      this.addScreenShake(intensity, 0.45);
+    }
   }
 
   public dispose(): void {

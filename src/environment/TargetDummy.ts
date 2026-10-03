@@ -7,6 +7,7 @@ export type { HitResult };
 export class TargetDummy implements DamageableTarget {
   public readonly id: string;
   public readonly group: THREE.Group;
+  public readonly position: THREE.Vector3;
 
   private readonly config: TargetDummyConfig;
   private currentHp: number;
@@ -44,6 +45,7 @@ export class TargetDummy implements DamageableTarget {
     this.group = new THREE.Group();
     this.group.position.copy(position);
     this.group.rotation.y = rotY;
+    this.position = this.group.position;
 
     // 1. Materials
     this.bodyMaterial = new THREE.MeshStandardMaterial({

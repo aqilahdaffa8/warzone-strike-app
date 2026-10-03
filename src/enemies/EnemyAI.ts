@@ -57,8 +57,8 @@ export class EnemyAI {
    * Tests whether an AABB centered at (x, y, z) intersects any arena obstacle.
    */
   public checkCollision(x: number, y: number, z: number): boolean {
-    this.tempBox.min.set(x - this.config.radius, y, z - this.config.radius);
-    this.tempBox.max.set(x + this.config.radius, y + this.config.height, z + this.config.radius);
+    this.tempBox.min.set(x - this.config.radius, y + 0.05, z - this.config.radius);
+    this.tempBox.max.set(x + this.config.radius, y + this.config.height - 0.05, z + this.config.radius);
 
     for (let i = 0; i < this.colliders.length; i++) {
       if (this.tempBox.intersectsBox(this.colliders[i])) {
@@ -206,9 +206,15 @@ export class EnemyAI {
     const minDistance = this.config.radius * 2.2;
     for (let i = 0; i < otherEnemyPositions.length; i++) {
       const other = otherEnemyPositions[i];
+      if (other === enemyPos) continue;
       this.separationVec.set(enemyPos.x - other.x, 0, enemyPos.z - other.z);
-      const sepDist = this.separationVec.length();
-      if (sepDist > 0.001 && sepDist < minDistance) {
+      let sepDist = this.separationVec.length();
+      if (sepDist <= 0.001) {
+        // Nudge in pseudo-random outward direction if overlapping identical positions
+        this.separationVec.set(Math.sin(i * 1.7) || 0.7, 0, Math.cos(i * 1.7) || 0.7).normalize();
+        sepDist = 0.001;
+      }
+      if (sepDist < minDistance) {
         const pushMag = (minDistance - sepDist) * 0.5 * Math.min(1.0, dt * 5.0);
         this.separationVec.divideScalar(sepDist).multiplyScalar(pushMag);
         this.resolveMovement(enemyPos, this.separationVec.x, this.separationVec.z);
