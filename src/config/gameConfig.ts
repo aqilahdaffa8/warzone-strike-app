@@ -120,6 +120,13 @@ export interface RewardConfig {
   bossMagazineUpgrade: number;
 }
 
+export type MockLeaderboardMode = 'success' | 'failure' | 'timeout' | 'offline';
+
+export interface LeaderboardConfig {
+  mockMode: MockLeaderboardMode;
+  submissionTimeoutMs: number;
+}
+
 export interface ScoreConfig {
   regularKill: number;
   enemyKill?: number;
@@ -152,6 +159,7 @@ export interface GameConfig {
   m4: AssaultRifleConfig;
   reward: RewardConfig;
   score: ScoreConfig;
+  leaderboard: LeaderboardConfig;
 }
 
 /**
@@ -280,5 +288,8 @@ export const GAME_CONFIG: GameConfig = {
     bossMagazineUpgrade: 3, // +3 magazine capacity upgrade on Boss defeat
   },
   score: DEFAULT_SCORE_CONFIG,
+  leaderboard: {
+    mockMode: 'success',
+    submissionTimeoutMs: 10000,
+  },
 };
-

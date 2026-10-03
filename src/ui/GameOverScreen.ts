@@ -27,8 +27,11 @@ export class GameOverScreen {
   private readonly shotsValEl: HTMLElement | null;
   private readonly sessionValEl: HTMLElement | null;
   private readonly restartBtn: HTMLButtonElement | null;
+  private readonly submissionStatusEl: HTMLElement | null;
+  private readonly retrySubmissionBtn: HTMLButtonElement | null;
 
   private onRestartCallback: (() => void) | null = null;
+  private onRetrySubmissionCallback: (() => void) | null = null;
 
   constructor() {
     this.overlay = document.querySelector<HTMLElement>('#game-over-overlay');
@@ -45,6 +48,8 @@ export class GameOverScreen {
     this.shotsValEl = document.querySelector<HTMLElement>('#go-stat-shots');
     this.sessionValEl = document.querySelector<HTMLElement>('#go-stat-session');
     this.restartBtn = document.querySelector<HTMLButtonElement>('#btn-restart-game');
+    this.submissionStatusEl = document.querySelector<HTMLElement>('#go-submission-status');
+    this.retrySubmissionBtn = document.querySelector<HTMLButtonElement>('#btn-retry-submission');
 
     if (this.restartBtn) {
       this.restartBtn.addEventListener('click', (e) => {
@@ -54,10 +59,23 @@ export class GameOverScreen {
         }
       });
     }
+
+    if (this.retrySubmissionBtn) {
+      this.retrySubmissionBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onRetrySubmissionCallback) {
+          this.onRetrySubmissionCallback();
+        }
+      });
+    }
   }
 
   public setOnRestart(callback: () => void): void {
     this.onRestartCallback = callback;
+  }
+
+  public setOnRetrySubmission(callback: () => void): void {
+    this.onRetrySubmissionCallback = callback;
   }
 
   private formatTime(totalSeconds: number): string {
@@ -110,8 +128,28 @@ export class GameOverScreen {
     if (this.shotsValEl) this.shotsValEl.textContent = `${stats.shotsFired}`;
     if (this.sessionValEl) this.sessionValEl.textContent = stats.sessionId || '-';
 
+    this.setSubmissionStatus('Menyiapkan submission score...', false);
+
     if (this.overlay) {
       this.overlay.style.display = 'flex';
+    }
+  }
+
+  public setSubmissionStatus(message: string, showRetry: boolean, isSuccess: boolean = false): void {
+    if (this.submissionStatusEl) {
+      this.submissionStatusEl.textContent = message;
+      this.submissionStatusEl.classList.toggle('success', isSuccess);
+    }
+
+    if (this.retrySubmissionBtn) {
+      this.retrySubmissionBtn.style.display = showRetry ? 'inline-flex' : 'none';
+      this.retrySubmissionBtn.disabled = false;
+    }
+  }
+
+  public setRetryEnabled(enabled: boolean): void {
+    if (this.retrySubmissionBtn) {
+      this.retrySubmissionBtn.disabled = !enabled;
     }
   }
 

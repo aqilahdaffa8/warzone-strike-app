@@ -308,8 +308,10 @@ export class SupplySelectionModal {
   }
 
   private renderCards(options: SupplyCardOption[]): void {
-    if (!this.containerEl) return;
-    this.containerEl.innerHTML = '';
+    const containerEl = this.containerEl;
+    if (!containerEl) return;
+    
+    containerEl.innerHTML = '';
 
     options.forEach((opt) => {
       const card = document.createElement('div');
@@ -332,7 +334,7 @@ export class SupplySelectionModal {
         this.selectItem(opt, card);
       });
 
-      this.containerEl.appendChild(card);
+      containerEl.appendChild(card);
     });
   }
 

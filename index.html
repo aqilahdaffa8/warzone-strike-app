@@ -33,7 +33,7 @@
       }
 
       /* ----------------------------------------------------
-         HUD (Heads-Up Display)
+          HUD (Heads-Up Display)
          ---------------------------------------------------- */
       #hud {
         position: absolute;
@@ -777,6 +777,43 @@
       .btn-danger:active {
         transform: scale(0.98);
       }
+      .submission-status {
+        margin-top: 10px;
+        min-height: 18px;
+        color: #8b949e;
+        font-size: 12px;
+        text-align: center;
+      }
+      .submission-status.success {
+        color: #3fb950;
+      }
+      .submission-actions {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .btn-secondary {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: #21262d;
+        color: #e6edf3;
+        border: 1px solid #30363d;
+        padding: 9px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+      }
+      .btn-secondary:hover {
+        background: #30363d;
+      }
+      .btn-secondary:disabled {
+        cursor: wait;
+        opacity: 0.55;
+      }
     
       #damage-vignette {
         position: absolute;
@@ -1312,6 +1349,10 @@
             </div>
           </div>
 
+          <div id="go-submission-status" class="submission-status">Menyiapkan submission score...</div>
+          <div class="submission-actions">
+            <button id="btn-retry-submission" class="btn-secondary" type="button">RETRY SUBMISSION</button>
+          </div>
           <button id="btn-restart-game" class="btn-danger">REDEPLOY / PLAY AGAIN</button>
         </div>
       </div>

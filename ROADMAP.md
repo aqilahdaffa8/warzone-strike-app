@@ -127,18 +127,18 @@ Setiap fase diakhiri dengan: `npm run build` lolos, `npm run dev` tanpa error co
 **Target:** `PlayerIdentityProvider` + `MockPlayerIdentityProvider`, `LeaderboardClient` + `MockLeaderboardClient` (dengan mode simulasi: sukses, gagal, timeout, offline/reconnect), `ScorePayload`, `sessionId` (UUID), `ScoreSubmissionQueue` (localStorage sebagai solusi MVP, dapat diganti IndexedDB), timeout submission, tombol Retry manual + retry otomatis sekali saat game dibuka (detail retry boleh disesuaikan), state `SUBMITTING_SCORE` / `SCORE_SUBMITTED`. Score selalu disimpan lokal sebelum submission dicoba.
 
 **Acceptance:**
-- [ ] Payload dibuat dari data sesi dengan semua field terisi
-- [ ] `sessionId` unik per sesi
-- [ ] Mock submission berjalan dan bisa disimulasikan gagal
-- [ ] Submission gagal tetap ada di queue (bertahan setelah refresh halaman)
-- [ ] Retry berhasil mengosongkan item dari queue
-- [ ] `sessionId` yang sama tidak terkirim dua kali
-- [ ] Score tersimpan lokal **sebelum** submission dicoba (uji: paksa gagal, refresh halaman, item masih ada)
-- [ ] **API mati:** game tetap dapat dimulai, dimainkan, dan mencapai Game Over; score akhir tampil; item masuk queue tanpa error fatal
-- [ ] **Timeout:** submission berhenti setelah batas waktu, UI tidak menggantung, item tetap di queue, pemain dapat main lagi
-- [ ] **Reconnect / API pulih:** retry (manual, otomatis saat game dibuka, atau saat event `online`) berhasil mengirim item dan mengosongkan queue
-- [ ] Game dapat dimainkan dari Main Menu sampai Game Over dengan jaringan dimatikan (DevTools offline)
-- [ ] Kegagalan penulisan storage (mis. quota penuh) tidak membuat game crash
+- [x] Payload dibuat dari data sesi dengan semua field terisi
+- [x] `sessionId` unik per sesi
+- [x] Mock submission berjalan dan bisa disimulasikan gagal
+- [x] Submission gagal tetap ada di queue (bertahan setelah refresh halaman)
+- [x] Retry berhasil mengosongkan item dari queue
+- [x] `sessionId` yang sama tidak terkirim dua kali
+- [x] Score tersimpan lokal **sebelum** submission dicoba (uji: paksa gagal, refresh halaman, item masih ada)
+- [x] **API mati:** game tetap dapat dimulai, dimainkan, dan mencapai Game Over; score akhir tampil; item masuk queue tanpa error fatal
+- [x] **Timeout:** submission berhenti setelah batas waktu, UI tidak menggantung, item tetap di queue, pemain dapat main lagi
+- [x] **Reconnect / API pulih:** retry (manual, otomatis saat game dibuka, atau saat event `online`) berhasil mengirim item dan mengosongkan queue
+- [x] Game dapat dimainkan dari Main Menu sampai Game Over dengan jaringan dimatikan (DevTools offline)
+- [x] Kegagalan penulisan storage (mis. quota penuh) tidak membuat game crash
 
 ---
 

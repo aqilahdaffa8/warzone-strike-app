@@ -23,6 +23,12 @@ import { GrenadeManager } from '../weapons/Grenade';
 import { SupplyDropManager } from '../wave/SupplyDropManager';
 import { SupplySelectionModal, SupplyItemType, SupplyLoadoutState } from '../ui/SupplySelectionModal';
 import { isBossWave } from '../wave/WaveConfig';
+import { PlayerIdentityProvider } from '../identity/PlayerIdentityProvider';
+import { MockPlayerIdentityProvider } from '../identity/MockPlayerIdentityProvider';
+import { LeaderboardClient } from '../leaderboard/LeaderboardClient';
+import { MockLeaderboardClient } from '../leaderboard/MockLeaderboardClient';
+import { QueueSubmissionResult, ScoreSubmissionQueue } from '../leaderboard/ScoreSubmissionQueue';
+import { ScorePayload } from '../scoring/ScoreManager';
 
 export class Game {
   private readonly canvas: HTMLCanvasElement;
@@ -44,6 +50,11 @@ export class Game {
   private readonly supplyModal: SupplySelectionModal;
   private readonly projectileManager: EnemyProjectileManager;
   private readonly scoreManager: ScoreManager;
+  private readonly identityProvider: PlayerIdentityProvider;
+  private readonly leaderboardClient: LeaderboardClient;
+  private readonly scoreSubmissionQueue: ScoreSubmissionQueue;
+  private currentScorePayload: ScorePayload | null = null;
+  private hasRetriedPendingScoresOnStartup: boolean = false;
   private activeWeaponType: WeaponType = 'sniper';
   private isLeftMouseDown: boolean = false;
 
@@ -129,6 +140,9 @@ export class Game {
 
     // 9. Score Manager
     this.scoreManager = new ScoreManager(GAME_CONFIG.score);
+    this.identityProvider = new MockPlayerIdentityProvider();
+    this.leaderboardClient = new MockLeaderboardClient(GAME_CONFIG.leaderboard);
+    this.scoreSubmissionQueue = new ScoreSubmissionQueue();
     this.scoreManager.onScoreChanged = (score, delta, reason) => {
       this.hud.updateScore(score, delta, reason);
     };
@@ -300,6 +314,9 @@ export class Game {
     this.gameOverScreen = new GameOverScreen();
     this.gameOverScreen.setOnRestart(() => {
       this.restartGame();
+    });
+    this.gameOverScreen.setOnRetrySubmission(() => {
+      void this.retryCurrentScoreSubmission();
     });
 
     this.playerHealth.onDeath(() => {
@@ -699,7 +716,7 @@ export class Game {
         }
       } else if (this.activeWeaponType === 'bazooka') {
         const res = this.bazooka.fire();
-        if (res.fired) {
+        if (res) {
           this.scoreManager.recordShot(false, false);
         }
       } else if (this.activeWeaponType === 'akm') {
@@ -845,7 +862,7 @@ export class Game {
   };
 
   public handlePlayerDeath(): void {
-    if (this.state === 'GAME_OVER') return;
+    if (this.state === 'GAME_OVER' || this.state === 'SUBMITTING_SCORE' || this.state === 'SCORE_SUBMITTED') return;
     this.isVictory = false;
     if (this.supplyModal.getIsOpen()) {
       this.supplyModal.close();
@@ -856,7 +873,7 @@ export class Game {
 
   public handleGameVictory(_totalWaves?: number): void {
     void _totalWaves;
-    if (this.state === 'GAME_OVER') return;
+    if (this.state === 'GAME_OVER' || this.state === 'SUBMITTING_SCORE' || this.state === 'SCORE_SUBMITTED') return;
     this.isVictory = true;
     if (this.supplyModal.getIsOpen()) {
       this.supplyModal.close();
@@ -865,9 +882,101 @@ export class Game {
     this.setState('GAME_OVER');
   }
 
+  private async submitCurrentScore(payload: ScorePayload): Promise<void> {
+    if (this.scoreSubmissionQueue.isSubmitted(payload.sessionId)) {
+      this.setState('SCORE_SUBMITTED');
+      return;
+    }
+
+    this.setState('SUBMITTING_SCORE');
+
+    if (!this.scoreSubmissionQueue.isPersistenceAvailable()) {
+      this.gameOverScreen.setSubmissionStatus(
+        'Score disimpan di memori sesi. localStorage tidak tersedia; submission tetap dicoba.',
+        false
+      );
+    } else {
+      this.gameOverScreen.setSubmissionStatus(
+        'Mengirim score ke mock leaderboard...',
+        false
+      );
+    }
+
+    const result = await this.scoreSubmissionQueue.submit(
+      payload,
+      this.leaderboardClient,
+      GAME_CONFIG.leaderboard.submissionTimeoutMs
+    );
+
+    this.applySubmissionResult(result);
+  }
+
+  private applySubmissionResult(result: QueueSubmissionResult): void {
+    switch (result.status) {
+      case 'submitted':
+      case 'already_submitted':
+        this.setState('SCORE_SUBMITTED');
+        break;
+
+      case 'timeout':
+        this.setState('GAME_OVER');
+        this.gameOverScreen.setSubmissionStatus(`${result.message} Score tetap berada di queue.`, true);
+        break;
+
+      case 'offline':
+      case 'failed':
+        this.setState('GAME_OVER');
+        this.gameOverScreen.setSubmissionStatus(`${result.message} Score tetap berada di queue.`, true);
+        break;
+
+      case 'storage_error':
+        this.setState('GAME_OVER');
+        this.gameOverScreen.setSubmissionStatus(result.message, true);
+        break;
+    }
+  }
+
+  private async retryCurrentScoreSubmission(): Promise<void> {
+    if (!this.currentScorePayload) return;
+    if (this.scoreSubmissionQueue.isSubmitted(this.currentScorePayload.sessionId)) {
+      this.setState('SCORE_SUBMITTED');
+      return;
+    }
+
+    this.setState('SUBMITTING_SCORE');
+    this.gameOverScreen.setRetryEnabled(false);
+    this.gameOverScreen.setSubmissionStatus('Mencoba mengirim ulang score...', false);
+
+    const result = await this.scoreSubmissionQueue.submit(
+      this.currentScorePayload,
+      this.leaderboardClient,
+      GAME_CONFIG.leaderboard.submissionTimeoutMs
+    );
+
+    this.applySubmissionResult(result);
+  }
+
+  private async retryPendingScoresOnStartup(): Promise<void> {
+    if (this.scoreSubmissionQueue.getPendingCount() === 0) return;
+
+    const results = await this.scoreSubmissionQueue.retryAll(
+      this.leaderboardClient,
+      GAME_CONFIG.leaderboard.submissionTimeoutMs
+    );
+
+    const submittedCount = results.filter(
+      (result) => result.status === 'submitted' || result.status === 'already_submitted'
+    ).length;
+
+    if (submittedCount > 0) {
+      console.info(`[Leaderboard] Auto-retry submitted ${submittedCount} queued score(s).`);
+    }
+  }
+
   public restartGame(): void {
     // 1. Hide Game Over Screen
     this.gameOverScreen.hide();
+    this.currentScorePayload = null;
     this.isVictory = false;
 
     // 2. Reset Player State & Position
@@ -968,23 +1077,44 @@ export class Game {
         this.pauseMenu.hide();
         this.hud.hide();
 
-        this.scoreManager.finalizeSession();
-        const payload = this.scoreManager.generatePayload();
-        const sniperStats = this.sniper.getStats();
+        if (!this.currentScorePayload) {
+          this.scoreManager.finalizeSession();
+          this.currentScorePayload = this.scoreManager.generatePayload(
+            this.identityProvider.getIdentity().playerId,
+            this.identityProvider.getIdentity().nickname
+          );
+          const payload = this.currentScorePayload;
+          const sniperStats = this.sniper.getStats();
 
-        this.gameOverScreen.show({
-          score: payload.score,
-          waveReached: payload.waveReached,
-          enemiesDefeated: payload.kills,
-          bossesKilled: payload.bossesKilled,
-          shotsFired: sniperStats.shotsFired,
-          shotsHit: sniperStats.shotsHit,
-          headshots: payload.headshots,
-          accuracy: payload.accuracy,
-          durationSeconds: payload.durationSeconds,
-          sessionId: payload.sessionId,
-          isVictory: this.isVictory,
-        });
+          this.gameOverScreen.show({
+            score: payload.score,
+            waveReached: payload.waveReached,
+            enemiesDefeated: payload.kills,
+            bossesKilled: payload.bossesKilled,
+            shotsFired: sniperStats.shotsFired,
+            shotsHit: sniperStats.shotsHit,
+            headshots: payload.headshots,
+            accuracy: payload.accuracy,
+            durationSeconds: payload.durationSeconds,
+            sessionId: payload.sessionId,
+            isVictory: this.isVictory,
+          });
+
+          void this.submitCurrentScore(payload);
+        }
+        break;
+
+      case 'SUBMITTING_SCORE':
+        this.playerController.setEnabled(false);
+        this.pauseMenu.hide();
+        this.hud.hide();
+        break;
+
+      case 'SCORE_SUBMITTED':
+        this.playerController.setEnabled(false);
+        this.pauseMenu.hide();
+        this.hud.hide();
+        this.gameOverScreen.setSubmissionStatus('Score berhasil dikirim. Session ID ini tidak akan dikirim ulang.', false, true);
         break;
     }
   }
@@ -1005,6 +1135,10 @@ export class Game {
     this.isRunning = true;
     this.clock.start();
     this.setState('MENU');
+    if (!this.hasRetriedPendingScoresOnStartup) {
+      this.hasRetriedPendingScoresOnStartup = true;
+      void this.retryPendingScoresOnStartup();
+    }
     this.loop();
   }
 
