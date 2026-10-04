@@ -136,6 +136,8 @@ export interface LeaderboardConfig {
 export interface SupplyDropConfig {
   interactionRadius: number;
   hiddenLifetime: number;
+  /** Time (seconds) the crate remains visible and claimable before disappearing. Separate from hiddenLifetime. */
+  displayLifetime: number;
   arenaMinX: number;
   arenaMaxX: number; 
   arenaMinZ: number;
@@ -239,7 +241,7 @@ export const GAME_CONFIG: GameConfig = {
   },
   wave: {
     totalWaves: 999999, // Endless waves without ceiling
-    initialEnemies: 5, // Wave 1: 5 enemies
+    initialEnemies: 3, // Wave 1: 3 enemies (balanced early progression)
     additionalEnemiesPerWave: 2, // +2 enemies per wave
     hpScaling: 0.12, // +12% enemy HP per wave (challenging progression)
     damageScaling: 0.08, // +8% enemy damage per wave
@@ -318,7 +320,8 @@ export const GAME_CONFIG: GameConfig = {
   },
   supplyDrop: {
     interactionRadius: 2.5,
-    hiddenLifetime: 10.0,
+    hiddenLifetime: 10.0,    // Time (seconds) crate stays hidden in mini-timeline before becoming visible
+    displayLifetime: 45.0,   // Time (seconds) crate is visible and claimable before auto-disappearing
     arenaMinX: -29,
     arenaMaxX: 29,
     arenaMinZ: -29,

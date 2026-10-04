@@ -28,6 +28,8 @@ export class HUD {
   private readonly crosshair: HTMLElement | null;
   private readonly hitmarkerEl: HTMLElement | null;
   private hitmarkerTimeout: number | null = null;
+  private readonly damageIndicatorArrow: HTMLElement | null;
+  private damageIndicatorTimeout: number | null = null;
   private readonly staminaBar: HTMLElement | null;
   private readonly staminaBarFill: HTMLElement | null;
   private readonly radarCanvas: HTMLCanvasElement | null;
@@ -45,6 +47,7 @@ export class HUD {
   private readonly claimRewardBtn: HTMLButtonElement | null;
   private readonly rewardNoticeEl: HTMLElement | null;
   private readonly rewardNoticeText: HTMLElement | null;
+  private readonly toastContainer: HTMLElement | null;
 
   // Boss Health Bar Elements
   private readonly bossContainer: HTMLElement | null;
@@ -114,6 +117,7 @@ export class HUD {
     this.root = document.querySelector<HTMLElement>('#hud');
     this.crosshair = document.querySelector<HTMLElement>('#crosshair');
     this.hitmarkerEl = document.querySelector<HTMLElement>('#hitmarker');
+    this.damageIndicatorArrow = document.querySelector<HTMLElement>('#damage-indicator-arrow');
     this.staminaBar = document.querySelector<HTMLElement>('#hud-stamina');
     this.staminaBarFill = document.querySelector<HTMLElement>('#hud-stamina-fill');
     this.radarCanvas = document.querySelector<HTMLCanvasElement>('#hud-radar');
@@ -129,6 +133,7 @@ export class HUD {
     this.claimRewardBtn = document.querySelector<HTMLButtonElement>('#btn-claim-reward');
     this.rewardNoticeEl = document.querySelector<HTMLElement>('#hud-reward-notice');
     this.rewardNoticeText = document.querySelector<HTMLElement>('#hud-reward-notice-text');
+    this.toastContainer = document.querySelector<HTMLElement>('#hud-toast-container');
     this.supplyPrompt = document.querySelector<HTMLElement>('#hud-supply-prompt');
 
     this.bossContainer = document.querySelector<HTMLElement>('#hud-boss-container');
@@ -736,22 +741,67 @@ export class HUD {
   private rewardNoticeTimeout: number | null = null;
 
   /**
+   * Displays non-overlapping tactical toast notifications in a clean vertical stack.
+   * Auto-stacks up to 3 notifications smoothly without colliding or overlapping.
+   */
+  public showToast(
+    message: string,
+    type: 'reward' | 'info' | 'warning' = 'info',
+    durationMs: number = 3200
+  ): void {
+    if (!this.toastContainer) {
+      if (this.rewardNoticeEl && this.rewardNoticeText) {
+        this.rewardNoticeText.textContent = message;
+        this.rewardNoticeEl.classList.add('show');
+        if (this.rewardNoticeTimeout !== null) {
+          window.clearTimeout(this.rewardNoticeTimeout);
+        }
+        this.rewardNoticeTimeout = window.setTimeout(() => {
+          this.rewardNoticeEl?.classList.remove('show');
+          this.rewardNoticeTimeout = null;
+        }, durationMs);
+      }
+      return;
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `hud-toast-item ${type}`;
+    toast.textContent = message;
+
+    // Limit active toasts to 3 so they never crowd the reticle or HUD
+    while (this.toastContainer.children.length >= 3) {
+      const oldest = this.toastContainer.firstElementChild;
+      if (oldest) {
+        this.toastContainer.removeChild(oldest);
+      }
+    }
+
+    this.toastContainer.appendChild(toast);
+
+    // Force frame layout then transition in
+    requestAnimationFrame(() => {
+      toast.classList.add('show');
+    });
+
+    window.setTimeout(() => {
+      toast.classList.remove('show');
+      window.setTimeout(() => {
+        if (this.toastContainer && toast.parentElement === this.toastContainer) {
+          this.toastContainer.removeChild(toast);
+        }
+      }, 300);
+    }, durationMs);
+  }
+
+  /**
    * Displays tactical popup notification when supplies/rewards are claimed.
    */
   public showRewardNotice(message: string): void {
-    if (!this.rewardNoticeEl || !this.rewardNoticeText) return;
-    this.rewardNoticeText.textContent = message;
-    this.rewardNoticeEl.classList.add('show');
+    this.showToast(message, 'reward', 3500);
 
-    if (this.rewardNoticeTimeout !== null) {
-      window.clearTimeout(this.rewardNoticeTimeout);
+    if (this.rewardNoticeEl && this.rewardNoticeText) {
+      this.rewardNoticeText.textContent = message;
     }
-    this.rewardNoticeTimeout = window.setTimeout(() => {
-      if (this.rewardNoticeEl) {
-        this.rewardNoticeEl.classList.remove('show');
-      }
-      this.rewardNoticeTimeout = null;
-    }, 3500);
   }
 
   /**
@@ -808,7 +858,8 @@ export class HUD {
   public updateRadar(
     playerPosition: RadarPosition,
     heading: number,
-    enemyPositions: readonly RadarPosition[]
+    enemyPositions: readonly RadarPosition[],
+    supplyPosition?: RadarPosition | null
   ): void {
     const context = this.radarContext;
     if (!context) return;
@@ -841,6 +892,7 @@ export class HUD {
     context.lineTo(center, center + markerRadius);
     context.stroke();
 
+    // 1. Draw Hostile Enemies (Red Dots)
     for (const enemy of enemyPositions) {
       const offsetX = enemy.x - playerPosition.x;
       const offsetZ = enemy.z - playerPosition.z;
@@ -851,6 +903,50 @@ export class HUD {
       context.arc(center + offsetX * scale, center + offsetZ * scale, 4, 0, Math.PI * 2);
       context.fillStyle = '#f85149';
       context.fill();
+    }
+
+    // 2. Draw Supply Crate Waypoint Marker (Golden Pulsing Box)
+    if (supplyPosition) {
+      const offsetX = supplyPosition.x - playerPosition.x;
+      const offsetZ = supplyPosition.z - playerPosition.z;
+      const distance = Math.hypot(offsetX, offsetZ);
+
+      let drawX = offsetX * scale;
+      let drawZ = offsetZ * scale;
+      // If outside radar range (30m), clamp to radar edge so player always sees supply direction
+      if (distance > RADAR_RANGE && distance > 0.001) {
+        const edgeRadius = markerRadius - 3;
+        drawX = (offsetX / distance) * edgeRadius;
+        drawZ = (offsetZ / distance) * edgeRadius;
+      }
+
+      context.save();
+      context.translate(center + drawX, center + drawZ);
+
+      // Pulsing amber crate square with white hazard border
+      const pulse = 1.0 + Math.sin(performance.now() * 0.006) * 0.2;
+      const size = 8 * pulse;
+
+      context.fillStyle = '#e3b341';
+      context.shadowColor = '#e3b341';
+      context.shadowBlur = 6;
+      context.fillRect(-size / 2, -size / 2, size, size);
+
+      context.strokeStyle = '#ffffff';
+      context.lineWidth = 1.5;
+      context.strokeRect(-size / 2, -size / 2, size, size);
+
+      // Cross on crate
+      context.beginPath();
+      context.moveTo(0, -size / 2);
+      context.lineTo(0, size / 2);
+      context.moveTo(-size / 2, 0);
+      context.lineTo(size / 2, 0);
+      context.strokeStyle = '#0d1117';
+      context.lineWidth = 1;
+      context.stroke();
+
+      context.restore();
     }
 
     context.restore();
@@ -902,6 +998,29 @@ export class HUD {
     }, 120);
   }
 
+  /**
+   * Shows a directional damage indicator pointing toward the damage source.
+   * @param angleRad rotation angle in radians (0 = top/front, PI/2 = right, PI = back, -PI/2 = left)
+   */
+  public showDamageDirection(angleRad: number): void {
+    if (!this.damageIndicatorArrow) return;
+    this.damageIndicatorArrow.style.transform = `rotate(${angleRad}rad)`;
+    this.damageIndicatorArrow.classList.remove('active');
+    // Force DOM reflow to allow consecutive re-triggering animation
+    void this.damageIndicatorArrow.offsetWidth;
+    this.damageIndicatorArrow.classList.add('active');
+
+    if (this.damageIndicatorTimeout !== null) {
+      window.clearTimeout(this.damageIndicatorTimeout);
+    }
+    this.damageIndicatorTimeout = window.setTimeout(() => {
+      if (this.damageIndicatorArrow) {
+        this.damageIndicatorArrow.classList.remove('active');
+      }
+      this.damageIndicatorTimeout = null;
+    }, 600);
+  }
+
   public hide(): void {
     if (this.root) {
       this.root.style.display = 'none';
@@ -920,6 +1039,10 @@ export class HUD {
     if (this.hitmarkerTimeout !== null) {
       window.clearTimeout(this.hitmarkerTimeout);
       this.hitmarkerTimeout = null;
+    }
+    if (this.damageIndicatorTimeout !== null) {
+      window.clearTimeout(this.damageIndicatorTimeout);
+      this.damageIndicatorTimeout = null;
     }
     if (this.damageVignetteTimeout !== null) {
       window.clearTimeout(this.damageVignetteTimeout);

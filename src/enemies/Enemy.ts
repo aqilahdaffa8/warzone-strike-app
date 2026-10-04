@@ -575,7 +575,7 @@ export class Enemy implements DamageableTarget {
 
     // If AI triggered a melee attack, deal damage to PlayerHealth
     if (attackAction.attacked) {
-      playerHealth.takeDamage(attackAction.damage);
+      playerHealth.takeDamage(attackAction.damage, this.position);
     }
 
     // 6. Arm Swing / Melee Slash Animation

@@ -1,4 +1,7 @@
+import * as THREE from 'three';
+
 export type HealthChangeCallback = (currentHp: number, maxHp: number) => void;
+export type DamageTakenCallback = (amount: number, sourcePos?: THREE.Vector3) => void;
 
 /**
  * Manages player health state, damage calculation, and change events.
@@ -7,6 +10,7 @@ export class PlayerHealth {
   private currentHp: number;
   private readonly maxHp: number;
   private readonly listeners: Set<HealthChangeCallback> = new Set();
+  private readonly damageListeners: Set<DamageTakenCallback> = new Set();
 
   constructor(maxHp: number = 100) {
     this.maxHp = Math.max(1, maxHp);
@@ -28,11 +32,19 @@ export class PlayerHealth {
     return this.currentHp <= 0;
   }
 
-  public takeDamage(amount: number): void {
+  public takeDamage(amount: number, sourcePos?: THREE.Vector3): void {
     if (amount <= 0 || this.isDead()) return;
 
     this.currentHp = Math.max(0, this.currentHp - amount);
     this.notify();
+
+    for (const listener of this.damageListeners) {
+      try {
+        listener(amount, sourcePos);
+      } catch (err) {
+        console.error('Error in PlayerHealth damage listener:', err);
+      }
+    }
 
     if (this.currentHp === 0 && !this.hasFiredDeath) {
       this.hasFiredDeath = true;
@@ -44,6 +56,13 @@ export class PlayerHealth {
         }
       }
     }
+  }
+
+  public onDamageTaken(callback: DamageTakenCallback): () => void {
+    this.damageListeners.add(callback);
+    return () => {
+      this.damageListeners.delete(callback);
+    };
   }
 
   public heal(amount: number): void {

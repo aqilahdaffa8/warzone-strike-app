@@ -18,8 +18,15 @@ export class SupplyCrate {
   private readonly scene: THREE.Scene;
   private readonly rewardData: CrateRewardData;
   private readonly interactionRadius: number;
-  private lifetimeRemaining: number;
-  // Hidden pre-interaction lifetime. This countdown is intentionally never rendered in the HUD/UI.
+
+  // Two-phase timer:
+  //   Phase 1 (hidden): crate exists but is invisible until hiddenTimer reaches 0
+  //   Phase 2 (display): crate becomes visible and counts down displayTimer until it expires
+  private hiddenTimer: number;
+  private displayTimer: number;
+  private readonly displayLifetime: number;
+  private isVisible: boolean = false;
+
   private lifetimePaused: boolean = false;
   private isClaimed: boolean = false;
 
@@ -33,17 +40,23 @@ export class SupplyCrate {
     rewardData: CrateRewardData,
     scene: THREE.Scene,
     interactionRadius: number,
-    lifetimeSeconds: number
+    hiddenLifetimeSeconds: number,
+    displayLifetimeSeconds: number
   ) {
     this.scene = scene;
     this.rewardData = rewardData;
     this.interactionRadius = interactionRadius;
-    this.lifetimeRemaining = lifetimeSeconds;
+    this.hiddenTimer = hiddenLifetimeSeconds;
+    this.displayTimer = displayLifetimeSeconds;
+    this.displayLifetime = displayLifetimeSeconds;
     this.isBossCrate = rewardData.isBossReward;
 
     this.group = new THREE.Group();
     this.group.position.copy(position);
     this.position = this.group.position;
+
+    // Start hidden — group is added to scene but invisible
+    this.group.visible = false;
 
     // 1. Military Supply Crate Body (Olive or Obsidian for Boss)
     const crateMat = new THREE.MeshStandardMaterial({
@@ -156,15 +169,47 @@ export class SupplyCrate {
     return this.rewardData;
   }
 
-  public update(dt: number, playerPos: THREE.Vector3): { isNear: boolean; expired: boolean } {
-    if (this.isClaimed) return { isNear: false, expired: false };
+  /** Returns true if the crate is currently visible (past hidden phase). */
+  public getIsVisible(): boolean {
+    return this.isVisible && !this.isClaimed;
+  }
+
+  /**
+   * Returns the display lifetime ratio (1 = just became visible, 0 = about to expire).
+   * Useful for HUD countdown bar.
+   */
+  public getDisplayLifetimeRatio(): number {
+    if (!this.isVisible || this.displayLifetime <= 0) return 0;
+    return Math.max(0, this.displayTimer / this.displayLifetime);
+  }
+
+  public update(dt: number, playerPos: THREE.Vector3): { isNear: boolean; expired: boolean; becameVisible: boolean } {
+    if (this.isClaimed) return { isNear: false, expired: false, becameVisible: false };
+
+    let becameVisible = false;
 
     if (!this.lifetimePaused) {
-      this.lifetimeRemaining = Math.max(0, this.lifetimeRemaining - dt);
+      if (!this.isVisible) {
+        // Phase 1: Hidden countdown
+        this.hiddenTimer = Math.max(0, this.hiddenTimer - dt);
+        if (this.hiddenTimer <= 0) {
+          // Transition to visible phase
+          this.isVisible = true;
+          this.group.visible = true;
+          becameVisible = true;
+        }
+      } else {
+        // Phase 2: Display countdown — crate is visible and claimable
+        this.displayTimer = Math.max(0, this.displayTimer - dt);
+        if (this.displayTimer <= 0) {
+          this.setInteractionPromptVisible(false);
+          return { isNear: false, expired: true, becameVisible: false };
+        }
+      }
     }
-    if (this.lifetimeRemaining <= 0) {
-      this.setInteractionPromptVisible(false);
-      return { isNear: false, expired: true };
+
+    if (!this.isVisible) {
+      return { isNear: false, expired: false, becameVisible };
     }
 
     this.rotationAngle += dt * 2.0;
@@ -177,7 +222,7 @@ export class SupplyCrate {
     const distToPlayer = this.position.distanceTo(playerPos);
     const isNear = distToPlayer <= this.interactionRadius;
     this.setInteractionPromptVisible(isNear);
-    return { isNear, expired: false };
+    return { isNear, expired: false, becameVisible };
   }
 
   public setInteractionPromptVisible(visible: boolean): void {

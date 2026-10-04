@@ -192,9 +192,17 @@ export class Game {
           this.hud.setClaimRewardAvailable(false);
           this.hud.setSupplyInteractionAvailable(false);
         },
+        onCrateLanded: (_pos, isBoss) => {
+          this.hud.showToast(
+            isBoss ? '⭐ WARLORD SUPPLY CRATE MENDARAT! (CEK MINIMAP)' : '📦 SUPPLY CRATE MENDARAT! (CEK MINIMAP)',
+            'warning',
+            4500
+          );
+        },
         onCrateExpired: () => {
           this.hud.setClaimRewardAvailable(false);
           this.hud.setSupplyInteractionAvailable(false);
+          this.hud.showToast('⚠️ SUPPLY CRATE TELAH KEDALUWARSA / HILANG', 'info', 3000);
         },
         onRequestSelectionModal: (waveNumber, isBossWave) => {
           this.openSupplyModal(waveNumber, isBossWave);
@@ -333,6 +341,9 @@ export class Game {
     this.gameOverScreen.setOnRestart(() => {
       this.restartGame();
     });
+    this.gameOverScreen.setOnReturnLobby(() => {
+      this.returnToLobby();
+    });
     this.gameOverScreen.setOnRetrySubmission(() => {
       void this.retryCurrentScoreSubmission();
     });
@@ -340,6 +351,26 @@ export class Game {
     this.playerHealth.onDeath(() => {
       if (this.state === 'PLAYING') {
         this.handlePlayerDeath();
+      }
+    });
+
+    this.playerHealth.onDamageTaken((_amount, sourcePos) => {
+      if (sourcePos && this.state === 'PLAYING') {
+        const playerPos = this.playerController.position;
+        const toSource = new THREE.Vector3().subVectors(sourcePos, playerPos);
+        toSource.y = 0;
+        if (toSource.lengthSq() > 0.001) {
+          toSource.normalize();
+          const fwd = new THREE.Vector3();
+          this.camera.getWorldDirection(fwd);
+          fwd.y = 0;
+          fwd.normalize();
+          const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+          const dotFwd = toSource.dot(fwd);
+          const dotRight = toSource.dot(right);
+          const angle = Math.atan2(dotRight, dotFwd);
+          this.hud.showDamageDirection(angle);
+        }
       }
     });
 
@@ -533,9 +564,8 @@ export class Game {
           this.hud.setClaimRewardAvailable(false);
           this.hud.setSupplyInteractionAvailable(false);
         } else {
-          this.supplyDropManager.clearCrate();
+          // Cancelled/closed: Do not delete crate. Player can re-open it if time allows.
           this.hud.setClaimRewardAvailable(false);
-          this.hud.setSupplyInteractionAvailable(false);
         }
       },
     );
@@ -1064,6 +1094,73 @@ export class Game {
     this.waveManager.startFirstWave();
   }
 
+  /**
+   * Returns player to main lobby / menu overlay after Game Over or mission completion.
+   */
+  public returnToLobby(): void {
+    // 1. Hide Game Over Screen
+    this.gameOverScreen.hide();
+    this.currentScorePayload = null;
+    this.isVictory = false;
+
+    // 2. Reset Player State & Position
+    this.playerHealth.reset();
+    const startPos = GAME_CONFIG.player.startingPosition;
+    this.playerController.resetPosition(startPos.x, startPos.y, startPos.z);
+    this.playerController.resetInputs();
+
+    // 3. Reset Weapons, Projectiles & Munitions
+    this.sniper.resetAmmo();
+    this.sniper.resetStats();
+    this.sniper.setScoped(false);
+    this.sniper.cancelReload();
+
+    this.bazooka.lock();
+    this.bazooka.resetAmmo();
+    this.akm.lock();
+    this.akm.resetAmmo();
+    this.m4.lock();
+    this.m4.resetAmmo();
+
+    this.primaryWeaponType = 'sniper';
+    this.grenadeManager.reset(1);
+    this.projectileManager.clear();
+    this.hud.updateGrenadeCount(1);
+    this.hud.setBazookaUnlocked(false);
+    this.hud.setAkmUnlocked(false);
+    this.hud.setM4Unlocked(false);
+    this.hud.setPrimarySlotWeapon('sniper');
+    this.switchWeapon('sniper');
+
+    // 4. Reset Dummies & Clear all active enemies and supply crates
+    this.clearEnemies();
+    this.supplyDropManager.clearCrate();
+    if (this.supplyModal.getIsOpen()) {
+      this.supplyModal.close();
+    }
+    for (const dummy of this.targetDummies) {
+      dummy.reset();
+    }
+
+    // 5. Reset Wave Manager, Score Manager & HUD
+    this.waveManager.reset();
+    this.scoreManager.reset(true);
+    this.hud.updateScore(0);
+    this.hud.hideBossBar();
+    this.hud.hideIntermission();
+    this.hud.setClaimRewardAvailable(false);
+    this.hud.hide();
+
+    // 6. Return to Menu State & show Start/Lobby overlay
+    this.setState('MENU');
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+    if (this.startOverlay) {
+      this.startOverlay.style.display = 'flex';
+    }
+  }
+
   public setState(newState: GameStateType): void {
     this.state = newState;
 
@@ -1264,10 +1361,12 @@ export class Game {
         }
       }
 
+      const activeCratePos = this.supplyDropManager.getActiveCratePosition();
       this.hud.updateRadar(
         this.playerController.position,
         this.playerController.getHeading(),
-        livingEnemyPositions
+        livingEnemyPositions,
+        activeCratePos ? { x: activeCratePos.x, z: activeCratePos.z } : null
       );
 
       // Update Enemy Ranged Projectiles (flight, collisions against obstacles, and hits on player)

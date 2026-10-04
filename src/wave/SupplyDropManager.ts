@@ -9,6 +9,7 @@ import { Bazooka } from '../weapons/Bazooka';
 export interface SupplyDropCallbacks {
   onRewardClaimed?: (data: CrateRewardData, message: string) => void;
   onCrateAvailable?: (isBossCrate: boolean, reward: CrateRewardData) => void;
+  onCrateLanded?: (position: THREE.Vector3, isBossCrate: boolean) => void;
   onRequestSelectionModal?: (waveNumber: number, isBossWave: boolean) => void;
   onCrateExpired?: () => void;
 }
@@ -64,6 +65,17 @@ export class SupplyDropManager {
   }
 
   /**
+   * Returns active supply crate world coordinates if it has landed and is visible.
+   * Used by minimap / radar to render supply crate beacon.
+   */
+  public getActiveCratePosition(): THREE.Vector3 | null {
+    if (this.activeCrate && this.activeCrate.getIsVisible()) {
+      return this.activeCrate.position;
+    }
+    return null;
+  }
+
+  /**
    * Spawns a Tactical Airdrop Supply Crate in front of player when a wave is cleared.
    */
   public spawnWaveSupplyCrate(playerPos: THREE.Vector3, isBossWave: boolean, waveNumber: number = 1): void {
@@ -102,7 +114,8 @@ export class SupplyDropManager {
       rewardData,
       this.scene,
       this.supplyConfig.interactionRadius,
-      this.supplyConfig.hiddenLifetime
+      this.supplyConfig.hiddenLifetime,
+      this.supplyConfig.displayLifetime
     );
 
     if (this.callbacks.onCrateAvailable) {
@@ -178,6 +191,9 @@ export class SupplyDropManager {
         this.clearCrate();
         this.callbacks.onCrateExpired?.();
         return;
+      }
+      if (result.becameVisible) {
+        this.callbacks.onCrateLanded?.(this.activeCrate.position, this.isCurrentBossWave);
       }
       this.playerNearCrate = result.isNear;
     } else {

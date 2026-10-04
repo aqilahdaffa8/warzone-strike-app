@@ -76,6 +76,34 @@
         color: #f85149;
         filter: drop-shadow(0 0 5px rgba(248, 81, 73, 0.95));
       }
+
+      /* Damage Direction Indicator */
+      #damage-indicator-container {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 140px;
+        height: 140px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 95;
+      }
+      #damage-indicator-arrow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.35s ease-out;
+        transform-origin: center center;
+      }
+      #damage-indicator-arrow.active {
+        opacity: 1;
+        transition: none;
+      }
+
       #hud-stamina {
         position: absolute;
         top: 50%;
@@ -335,6 +363,95 @@
       .hud-reward-notice.show {
         opacity: 1;
         transform: translateX(-50%) translateY(5px);
+      }
+
+      /* Toast Notification Container (Prevents overlapping of event notifications) */
+      #hud-toast-container {
+        position: absolute;
+        top: 135px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+        z-index: 80;
+        max-width: 90vw;
+      }
+      .hud-toast-item {
+        background: rgba(13, 17, 23, 0.94);
+        backdrop-filter: blur(8px);
+        border: 1px solid #3fb950;
+        border-radius: 6px;
+        padding: 7px 16px;
+        color: #f0f6fc;
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        white-space: nowrap;
+      }
+      .hud-toast-item.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .hud-toast-item.reward {
+        border-color: #3fb950;
+        color: #3fb950;
+        box-shadow: 0 4px 20px rgba(63, 185, 80, 0.35);
+      }
+      .hud-toast-item.info {
+        border-color: #58a6ff;
+        color: #58a6ff;
+        box-shadow: 0 4px 20px rgba(88, 166, 255, 0.35);
+      }
+      .hud-toast-item.warning {
+        border-color: #e3b341;
+        color: #e3b341;
+        box-shadow: 0 4px 20px rgba(227, 179, 65, 0.35);
+      }
+
+      /* Supply Interaction Prompt at Bottom-Center */
+      #hud-supply-prompt {
+        position: absolute;
+        bottom: 110px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        align-items: center;
+        gap: 10px;
+        background: rgba(13, 17, 23, 0.92);
+        border: 1px solid #e3b341;
+        border-radius: 6px;
+        padding: 8px 18px;
+        box-shadow: 0 0 20px rgba(227, 179, 65, 0.35);
+        pointer-events: none;
+        z-index: 70;
+        animation: pulse-glow-amber 1.5s infinite alternate;
+      }
+      @keyframes pulse-glow-amber {
+        from { box-shadow: 0 0 10px rgba(227, 179, 65, 0.2); }
+        to { box-shadow: 0 0 24px rgba(227, 179, 65, 0.6); }
+      }
+      .supply-prompt-key {
+        background: #e3b341;
+        color: #0d1117;
+        font-weight: 800;
+        font-size: 13px;
+        font-family: monospace;
+        padding: 2px 7px;
+        border-radius: 4px;
+      }
+      .supply-prompt-text {
+        font-size: 13px;
+        font-weight: 700;
+        color: #f0f6fc;
+        letter-spacing: 0.8px;
       }
 
       /* Boss Health Bar */
@@ -844,6 +961,33 @@
         gap: 8px;
         margin-top: 8px;
       }
+      .game-over-actions {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        margin-top: 10px;
+      }
+      .btn-lobby {
+        background: #21262d;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        padding: 14px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex: 1;
+      }
+      .btn-lobby:hover {
+        background: #30363d;
+        color: #ffffff;
+        border-color: #8b949e;
+      }
+      .btn-lobby:active {
+        transform: scale(0.98);
+      }
       .btn-secondary {
         display: none;
         align-items: center;
@@ -1037,6 +1181,17 @@
             </svg>
           </div>
         </div>
+
+        <!-- Damage Direction Indicator -->
+        <div id="damage-indicator-container">
+          <div id="damage-indicator-arrow">
+            <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; display: block; overflow: visible;">
+              <path d="M 28 20 Q 50 8 72 20 Q 50 14 28 20 Z" fill="#f85149" filter="drop-shadow(0 0 6px rgba(248, 81, 73, 0.9))" />
+              <polygon points="50,4 41,16 59,16" fill="#f85149" filter="drop-shadow(0 0 6px rgba(248, 81, 73, 0.9))" />
+            </svg>
+          </div>
+        </div>
+
         <div id="hud-stamina" role="progressbar" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
           <div id="hud-stamina-fill"></div>
         </div>
@@ -1121,9 +1276,18 @@
           </div>
         </div>
 
-        <!-- Supply Reward Notification Banner -->
-        <div id="hud-reward-notice" class="hud-reward-notice">
-          <span id="hud-reward-notice-text">📦 SUPPLIES RECEIVED: +25 AMMO | +40 HP | +1 GRENADE</span>
+        <!-- Supply Reward Notification Banner (legacy fallback) -->
+        <div id="hud-reward-notice" class="hud-reward-notice" style="display: none;">
+          <span id="hud-reward-notice-text"></span>
+        </div>
+
+        <!-- Toast Notification Stack Container (Prevents overlapping of alerts & popups) -->
+        <div id="hud-toast-container"></div>
+
+        <!-- Supply Interaction Prompt (Bottom-Center) -->
+        <div id="hud-supply-prompt" class="hud-supply-prompt">
+          <span class="supply-prompt-key">E</span>
+          <span class="supply-prompt-text">BUKA SUPPLY CRATE</span>
         </div>
 
         <!-- Top-left info -->
@@ -1413,7 +1577,10 @@
           <div class="submission-actions">
             <button id="btn-retry-submission" class="btn-secondary" type="button">RETRY SUBMISSION</button>
           </div>
-          <button id="btn-restart-game" class="btn-danger">REDEPLOY / PLAY AGAIN</button>
+          <div class="game-over-actions">
+            <button id="btn-restart-game" class="btn-danger" style="flex: 1.2;">MAIN LAGI</button>
+            <button id="btn-return-lobby" class="btn-lobby">KEMBALI KE LOBBY</button>
+          </div>
         </div>
       </div>
     </div>

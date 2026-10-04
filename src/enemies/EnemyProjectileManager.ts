@@ -116,7 +116,7 @@ export class EnemyProjectileManager {
 
       if (horizontalDist < 0.6 && verticalDist >= 0 && verticalDist <= 1.8) {
         // Direct hit on player!
-        playerHealth.takeDamage(p.damage);
+        playerHealth.takeDamage(p.damage, p.position);
         this.spawnImpactSpark(nextPos, true);
         shouldRemove = true;
       }

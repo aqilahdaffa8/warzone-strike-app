@@ -22,6 +22,10 @@ export class EnemyAI {
   private attackAnimTimer: number = 0;
   private readonly attackAnimDuration: number = 0.3;
 
+  // Anti-stuck and evasion steering
+  private evasionTimer: number = 0;
+  private readonly evasionDir = new THREE.Vector3();
+
   // Reusable scratch objects to prevent per-frame garbage collection
   private readonly tempBox = new THREE.Box3();
   private readonly toPlayer = new THREE.Vector3();
@@ -174,29 +178,59 @@ export class EnemyAI {
         const startX = enemyPos.x;
         const startZ = enemyPos.z;
 
-        // Attempt direct movement with AABB collision sliding
-        this.resolveMovement(enemyPos, this.moveDir.x * step, this.moveDir.z * step);
+        // If currently executing an active evasion steer around an obstacle corner
+        if (this.evasionTimer > 0) {
+          this.evasionTimer -= dt;
+          this.resolveMovement(enemyPos, this.evasionDir.x * step, this.evasionDir.z * step);
 
-        const distMoved = Math.hypot(enemyPos.x - startX, enemyPos.z - startZ);
+          // Test if forward movement path directly to player is unblocked
+          const testForwardX = enemyPos.x + this.moveDir.x * step * 1.5;
+          const testForwardZ = enemyPos.z + this.moveDir.z * step * 1.5;
+          if (!this.checkCollision(testForwardX, enemyPos.y, testForwardZ)) {
+            // Forward is clear again, end lateral evasion early!
+            this.evasionTimer = 0;
+          }
+        } else {
+          // Attempt direct movement with AABB collision sliding
+          this.resolveMovement(enemyPos, this.moveDir.x * step, this.moveDir.z * step);
 
-        // If direct movement is largely blocked (e.g. facing a flat wall perpendicular to player),
-        // probe lateral tangential directions to steer around the obstacle edge
-        if (distMoved < step * 0.3) {
-          // Probe both left (-dz, dx) and right (dz, -dx)
-          const leftX = -this.moveDir.z;
-          const leftZ = this.moveDir.x;
+          const distMoved = Math.hypot(enemyPos.x - startX, enemyPos.z - startZ);
 
-          const rightX = this.moveDir.z;
-          const rightZ = -this.moveDir.x;
+          // If direct movement is blocked or severely slowed (e.g. facing an obstacle or corner)
+          if (distMoved < step * 0.5) {
+            // Probe lateral tangential directions (-dz, dx) and (dz, -dx)
+            const leftX = -this.moveDir.z;
+            const leftZ = this.moveDir.x;
+            const rightX = this.moveDir.z;
+            const rightZ = -this.moveDir.x;
 
-          // Check if left probe is clear
-          const canMoveLeft = !this.checkCollision(enemyPos.x + leftX * step * 1.5, enemyPos.y, enemyPos.z + leftZ * step * 1.5);
-          const canMoveRight = !this.checkCollision(enemyPos.x + rightX * step * 1.5, enemyPos.y, enemyPos.z + rightZ * step * 1.5);
+            const probeDistance = Math.max(step * 2.0, this.config.radius * 1.2);
+            const canMoveLeft = !this.checkCollision(enemyPos.x + leftX * probeDistance, enemyPos.y, enemyPos.z + leftZ * probeDistance);
+            const canMoveRight = !this.checkCollision(enemyPos.x + rightX * probeDistance, enemyPos.y, enemyPos.z + rightZ * probeDistance);
 
-          if (canMoveLeft) {
-            this.resolveMovement(enemyPos, leftX * step * 0.8, leftZ * step * 0.8);
-          } else if (canMoveRight) {
-            this.resolveMovement(enemyPos, rightX * step * 0.8, rightZ * step * 0.8);
+            if (canMoveLeft && canMoveRight) {
+              // Both lateral sides open: pick one randomly to steer around
+              const chooseLeft = Math.random() < 0.5;
+              this.evasionDir.set(chooseLeft ? leftX : rightX, 0, chooseLeft ? leftZ : rightZ).normalize();
+              this.evasionTimer = 0.5;
+              this.resolveMovement(enemyPos, this.evasionDir.x * step, this.evasionDir.z * step);
+            } else if (canMoveLeft) {
+              this.evasionDir.set(leftX, 0, leftZ).normalize();
+              this.evasionTimer = 0.5;
+              this.resolveMovement(enemyPos, this.evasionDir.x * step, this.evasionDir.z * step);
+            } else if (canMoveRight) {
+              this.evasionDir.set(rightX, 0, rightZ).normalize();
+              this.evasionTimer = 0.5;
+              this.resolveMovement(enemyPos, this.evasionDir.x * step, this.evasionDir.z * step);
+            } else {
+              // Both sides blocked (e.g. concave nook or stuck between objects):
+              // Apply gentle backward and diagonal nudge to free the enemy from the corner
+              this.resolveMovement(
+                enemyPos,
+                -this.moveDir.x * step * 0.5 + (Math.random() < 0.5 ? leftX : rightX) * step * 0.4,
+                -this.moveDir.z * step * 0.5 + (Math.random() < 0.5 ? leftZ : rightZ) * step * 0.4
+              );
+            }
           }
         }
       }

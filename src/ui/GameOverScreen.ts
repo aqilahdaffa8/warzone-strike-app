@@ -27,10 +27,12 @@ export class GameOverScreen {
   private readonly shotsValEl: HTMLElement | null;
   private readonly sessionValEl: HTMLElement | null;
   private readonly restartBtn: HTMLButtonElement | null;
+  private readonly returnLobbyBtn: HTMLButtonElement | null;
   private readonly submissionStatusEl: HTMLElement | null;
   private readonly retrySubmissionBtn: HTMLButtonElement | null;
 
   private onRestartCallback: (() => void) | null = null;
+  private onReturnLobbyCallback: (() => void) | null = null;
   private onRetrySubmissionCallback: (() => void) | null = null;
 
   constructor() {
@@ -48,6 +50,7 @@ export class GameOverScreen {
     this.shotsValEl = document.querySelector<HTMLElement>('#go-stat-shots');
     this.sessionValEl = document.querySelector<HTMLElement>('#go-stat-session');
     this.restartBtn = document.querySelector<HTMLButtonElement>('#btn-restart-game');
+    this.returnLobbyBtn = document.querySelector<HTMLButtonElement>('#btn-return-lobby');
     this.submissionStatusEl = document.querySelector<HTMLElement>('#go-submission-status');
     this.retrySubmissionBtn = document.querySelector<HTMLButtonElement>('#btn-retry-submission');
 
@@ -56,6 +59,15 @@ export class GameOverScreen {
         e.stopPropagation();
         if (this.onRestartCallback) {
           this.onRestartCallback();
+        }
+      });
+    }
+
+    if (this.returnLobbyBtn) {
+      this.returnLobbyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onReturnLobbyCallback) {
+          this.onReturnLobbyCallback();
         }
       });
     }
@@ -72,6 +84,10 @@ export class GameOverScreen {
 
   public setOnRestart(callback: () => void): void {
     this.onRestartCallback = callback;
+  }
+
+  public setOnReturnLobby(callback: () => void): void {
+    this.onReturnLobbyCallback = callback;
   }
 
   public setOnRetrySubmission(callback: () => void): void {
