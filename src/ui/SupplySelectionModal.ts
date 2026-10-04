@@ -237,9 +237,9 @@ export class SupplySelectionModal {
         title: 'AKM 7.62x39mm Rifle',
         badge: 'SENJATA BARU',
         badgeColor: '#d29922',
-        description: 'Senapan serbu kaliber berat dengan penetrasi dan damage tinggi (Tombol 4).',
+        description: 'Senapan serbu kaliber berat dengan penetrasi dan damage tinggi (Ganti Senjata Utama Slot 1).',
         graphicSvg: getAkmGraphic(),
-        statBonus: 'UNLOCK [4] + 60 Peluru',
+        statBonus: 'SLOT 1 + 60 Peluru',
       });
     } else if (!loadout.hasM4) {
       list.push({
@@ -248,9 +248,9 @@ export class SupplySelectionModal {
         title: 'M4 Carbine 5.56mm NATO',
         badge: 'SENJATA BARU',
         badgeColor: '#58a6ff',
-        description: 'Senapan serbu akurasi tinggi dengan fire rate cepat dan recoil stabil (Tombol 5).',
+        description: 'Senapan serbu akurasi tinggi dengan fire rate cepat dan recoil stabil (Ganti Senjata Utama Slot 1).',
         graphicSvg: getM4Graphic(),
-        statBonus: 'UNLOCK [5] + 90 Peluru',
+        statBonus: 'SLOT 1 + 90 Peluru',
       });
     } else {
       // Both unlocked: offer rifle ammo

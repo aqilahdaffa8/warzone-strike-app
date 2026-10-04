@@ -26,6 +26,8 @@ const RADAR_SIZE = 168;
 export class HUD {
   private readonly root: HTMLElement | null;
   private readonly crosshair: HTMLElement | null;
+  private readonly hitmarkerEl: HTMLElement | null;
+  private hitmarkerTimeout: number | null = null;
   private readonly staminaBar: HTMLElement | null;
   private readonly staminaBarFill: HTMLElement | null;
   private readonly radarCanvas: HTMLCanvasElement | null;
@@ -111,6 +113,7 @@ export class HUD {
   constructor(health: PlayerHealth, callbacks?: HUDCallbacks) {
     this.root = document.querySelector<HTMLElement>('#hud');
     this.crosshair = document.querySelector<HTMLElement>('#crosshair');
+    this.hitmarkerEl = document.querySelector<HTMLElement>('#hitmarker');
     this.staminaBar = document.querySelector<HTMLElement>('#hud-stamina');
     this.staminaBarFill = document.querySelector<HTMLElement>('#hud-stamina-fill');
     this.radarCanvas = document.querySelector<HTMLCanvasElement>('#hud-radar');
@@ -380,63 +383,29 @@ export class HUD {
 
   public setActiveWeapon(type: WeaponType): void {
     this.activeWeapon = type;
+    const isPrimary = type === 'sniper' || type === 'akm' || type === 'm4';
+
     if (this.slotSniper) {
-      if (type === 'sniper') {
-        this.slotSniper.classList.add('active');
-      } else {
-        this.slotSniper.classList.remove('active');
-      }
-    }
-
-    if (this.slotKnife) {
-      if (type === 'knife') {
-        this.slotKnife.classList.add('active');
-      } else {
-        this.slotKnife.classList.remove('active');
-      }
-    }
-
-    if (this.slotBazooka) {
-      if (type === 'bazooka') {
-        this.slotBazooka.classList.add('active');
-      } else {
-        this.slotBazooka.classList.remove('active');
-      }
-    }
-
-    if (this.slotAkm) {
-      if (type === 'akm') {
-        this.slotAkm.classList.add('active');
-      } else {
-        this.slotAkm.classList.remove('active');
-      }
-    }
-
-    if (this.slotM4) {
-      if (type === 'm4') {
-        this.slotM4.classList.add('active');
-      } else {
-        this.slotM4.classList.remove('active');
-      }
-    }
-
-    // Slot 1 represents whichever primary weapon currently occupies it.
-    if (this.slotSniper) {
-      const isPrimary = type === 'sniper' || type === 'akm' || type === 'm4';
       this.slotSniper.classList.toggle('active', isPrimary);
+    }
+    if (this.slotKnife) {
+      this.slotKnife.classList.toggle('active', type === 'knife');
+    }
+    if (this.slotBazooka) {
+      this.slotBazooka.classList.toggle('active', type === 'bazooka');
+    }
+    if (this.slotGrenade) {
+      this.slotGrenade.classList.toggle('active', type === 'grenade');
     }
   }
 
   public setBazookaUnlocked(unlocked: boolean): void {
     if (this.slotBazooka) {
-      this.slotBazooka.style.display = 'flex';
-      this.slotBazooka.classList.toggle('locked', !unlocked);
+      this.slotBazooka.style.display = unlocked ? 'flex' : 'none';
+      this.slotBazooka.classList.remove('locked');
     }
     if (this.slot3Name) {
-      this.slot3Name.textContent = unlocked ? 'RPG-7' : 'EMPTY';
-    }
-    if (this.slot3Ammo && !unlocked) {
-      this.slot3Ammo.textContent = 'EMPTY';
+      this.slot3Name.textContent = 'RPG-7';
     }
   }
 
@@ -908,6 +877,31 @@ export class HUD {
     context.restore();
   }
 
+  /**
+   * Triggers visual hitmarker crosshair feedback ('X').
+   * @param isHeadshot whether the hit was a critical headshot (displays red)
+   */
+  public showHitmarker(isHeadshot: boolean = false): void {
+    if (!this.hitmarkerEl) return;
+    this.hitmarkerEl.classList.remove('headshot', 'active');
+    // Force DOM reflow to allow consecutive re-triggering
+    void this.hitmarkerEl.offsetWidth;
+    if (isHeadshot) {
+      this.hitmarkerEl.classList.add('headshot');
+    }
+    this.hitmarkerEl.classList.add('active');
+
+    if (this.hitmarkerTimeout !== null) {
+      window.clearTimeout(this.hitmarkerTimeout);
+    }
+    this.hitmarkerTimeout = window.setTimeout(() => {
+      if (this.hitmarkerEl) {
+        this.hitmarkerEl.classList.remove('active', 'headshot');
+      }
+      this.hitmarkerTimeout = null;
+    }, 120);
+  }
+
   public hide(): void {
     if (this.root) {
       this.root.style.display = 'none';
@@ -922,6 +916,10 @@ export class HUD {
     if (this.unsubscribeHealth) {
       this.unsubscribeHealth();
       this.unsubscribeHealth = null;
+    }
+    if (this.hitmarkerTimeout !== null) {
+      window.clearTimeout(this.hitmarkerTimeout);
+      this.hitmarkerTimeout = null;
     }
     if (this.damageVignetteTimeout !== null) {
       window.clearTimeout(this.damageVignetteTimeout);

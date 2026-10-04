@@ -55,6 +55,27 @@
         transform: translate(-50%, -50%);
         pointer-events: none;
       }
+      /* Hitmarker indicator */
+      #hitmarker {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 24px;
+        height: 24px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        opacity: 0;
+        color: #f0f6fc;
+        transition: opacity 0.05s ease-out;
+        z-index: 100;
+      }
+      #hitmarker.active {
+        opacity: 1;
+      }
+      #hitmarker.headshot {
+        color: #f85149;
+        filter: drop-shadow(0 0 5px rgba(248, 81, 73, 0.95));
+      }
       #hud-stamina {
         position: absolute;
         top: 50%;
@@ -1006,6 +1027,15 @@
           <div class="ch-line ch-left"></div>
           <div class="ch-line ch-right"></div>
           <div class="ch-dot"></div>
+          <!-- Dynamic Hitmarker -->
+          <div id="hitmarker">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <line x1="5" y1="5" x2="9" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="19" y1="5" x2="15" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="5" y1="19" x2="9" y2="15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="19" y1="19" x2="15" y2="15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
         </div>
         <div id="hud-stamina" role="progressbar" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
           <div id="hud-stamina-fill"></div>
@@ -1167,11 +1197,11 @@
           </div>
         </div>
 
-        <!-- Weapon Quick Select Slots -->
+        <!-- Weapon Quick Select Slots (4 Fixed Slots) -->
         <div id="hud-weapon-slots">
           <div class="weapon-slot active" id="slot-sniper" title="Press 1 or Scroll">
             <span class="slot-key">1</span>
-            <span>SNIPER</span>
+            <span id="slot-1-name">SNIPER</span>
           </div>
           <div class="weapon-slot" id="slot-knife" title="Press 2 or Scroll">
             <span class="slot-key">2</span>
@@ -1179,19 +1209,11 @@
           </div>
           <div class="weapon-slot" id="slot-bazooka" title="Press 3 or Scroll" style="display: none;">
             <span class="slot-key">3</span>
-            <span>RPG-7</span>
+            <span id="slot-3-name">RPG-7</span>
           </div>
-          <div class="weapon-slot" id="slot-akm" title="Press 4 or Scroll" style="display: none;">
+          <div class="weapon-slot" id="slot-grenade" title="Press 4 or G to throw bomb">
             <span class="slot-key">4</span>
-            <span>AKM</span>
-          </div>
-          <div class="weapon-slot" id="slot-m4" title="Press 5 or Scroll" style="display: none;">
-            <span class="slot-key">5</span>
-            <span>M4</span>
-          </div>
-          <div class="weapon-slot" id="slot-grenade" title="Press G to throw tactical frag grenade">
-            <span class="slot-key">G</span>
-            <span id="slot-grenade-text">BOMB: 1</span>
+            <span id="slot-grenade-text">BOMB: <span id="hud-grenade-count">1</span></span>
           </div>
         </div>
 

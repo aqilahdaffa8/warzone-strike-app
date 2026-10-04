@@ -76,12 +76,12 @@ export class SupplyDropManager {
     // Find a random open arena position that does not intersect an obstacle.
     const spawnPos = this.findValidSpawnPosition(playerPos);
 
-    const willUnlockBazooka = !this.bazooka.getIsUnlocked();
+    const willUnlockBazooka = isBossWave && !this.bazooka.getIsUnlocked();
     const rocketsCount = isBossWave
       ? this.config.bossRocketsGiven
-      : willUnlockBazooka
-      ? 3
-      : this.config.rocketsGiven;
+      : this.bazooka.getIsUnlocked()
+      ? this.config.rocketsGiven
+      : 0;
 
     const magUpgrade = isBossWave
       ? (this.config.bossMagazineUpgrade ?? 3)

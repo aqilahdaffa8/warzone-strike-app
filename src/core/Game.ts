@@ -152,9 +152,17 @@ export class Game {
     this.grenadeManager = new GrenadeManager(GAME_CONFIG.grenade, this.scene, colliders);
     this.grenadeManager.onExplosion = (pos) => {
       this.playerController.triggerExplosionShake(pos, 32.0);
+      const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= 6.0);
+      if (hitAny) {
+        this.hud.showHitmarker(false);
+      }
     };
     this.bazooka.onExplosion = (pos) => {
       this.playerController.triggerExplosionShake(pos, 35.0);
+      const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= 6.0);
+      if (hitAny) {
+        this.hud.showHitmarker(false);
+      }
     };
 
     // 11. Tactical Supply Selection Modal
@@ -734,11 +742,15 @@ export class Game {
         const res = this.sniper.fire(this.arena.getRaycastObstacles(), targets);
         if (res.fired) {
           this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+          if (res.hit) {
+            this.hud.showHitmarker(!!res.isHeadshot);
+          }
         }
       } else if (this.activeWeaponType === 'knife') {
         const res = this.knife.attack(this.arena.getRaycastObstacles(), targets);
         if (res.attacked && res.hit) {
           this.scoreManager.recordShot(true, !!res.isHeadshot);
+          this.hud.showHitmarker(!!res.isHeadshot);
         }
       } else if (this.activeWeaponType === 'bazooka') {
         const res = this.bazooka.fire();
@@ -749,11 +761,17 @@ export class Game {
         const res = this.akm.fire(this.arena.getRaycastObstacles(), targets);
         if (res.fired) {
           this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+          if (res.hit) {
+            this.hud.showHitmarker(!!res.isHeadshot);
+          }
         }
       } else if (this.activeWeaponType === 'm4') {
         const res = this.m4.fire(this.arena.getRaycastObstacles(), targets);
         if (res.fired) {
           this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+          if (res.hit) {
+            this.hud.showHitmarker(!!res.isHeadshot);
+          }
         }
       }
     }
@@ -795,7 +813,7 @@ export class Game {
       return;
     }
 
-    // Weapon switching: 1 = primary, 2 = knife, 3 = bazooka.
+    // Weapon switching: 1 = primary, 2 = knife, 3 = bazooka, 4 / G = bomb
     if (e.code === 'Digit1' || e.code === 'Numpad1') {
       this.switchWeapon(this.primaryWeaponType);
       return;
@@ -807,7 +825,9 @@ export class Game {
     }
 
     if (e.code === 'Digit3' || e.code === 'Numpad3') {
-      this.switchWeapon('bazooka');
+      if (this.bazooka.getIsUnlocked()) {
+        this.switchWeapon('bazooka');
+      }
       return;
     }
 
@@ -825,8 +845,8 @@ export class Game {
       return;
     }
 
-    // G: Throw Frag Grenade
-    if (e.code === 'KeyG') {
+    // 4 or G: Throw Frag Grenade
+    if (e.code === 'Digit4' || e.code === 'Numpad4' || e.code === 'KeyG') {
       this.throwGrenade();
       return;
     }
@@ -1188,11 +1208,17 @@ export class Game {
           const res = this.akm.fire(this.arena.getRaycastObstacles(), targets);
           if (res.fired) {
             this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+            if (res.hit) {
+              this.hud.showHitmarker(!!res.isHeadshot);
+            }
           }
         } else if (this.activeWeaponType === 'm4') {
           const res = this.m4.fire(this.arena.getRaycastObstacles(), targets);
           if (res.fired) {
             this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+            if (res.hit) {
+              this.hud.showHitmarker(!!res.isHeadshot);
+            }
           }
         }
       }
