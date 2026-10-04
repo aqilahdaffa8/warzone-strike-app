@@ -50,6 +50,7 @@ export class WaveManager {
 
   // Timers
   private intermissionTimer: number = 0;
+  private intermissionPaused: boolean = false;
   private spawnIntervalTimer: number = 0;
 
   constructor(
@@ -84,6 +85,14 @@ export class WaveManager {
 
   public getActiveBosses(): Boss[] {
     return this.activeBosses;
+  }
+
+  /**
+   * Freezes / resumes the intermission countdown (used while the supply menu is open
+   * so the player can choose a reward safely).
+   */
+  public setIntermissionPaused(paused: boolean): void {
+    this.intermissionPaused = paused;
   }
 
   public getIntermissionRemaining(): number {
@@ -125,6 +134,7 @@ export class WaveManager {
     this.activeBosses = [];
     this.targetBossCount = 0;
     this.intermissionTimer = 0;
+    this.intermissionPaused = false;
     this.spawnIntervalTimer = 0;
   }
 
@@ -283,6 +293,12 @@ export class WaveManager {
   }
 
   private updateIntermission(dt: number): void {
+    if (this.intermissionPaused) {
+      if (this.callbacks.onIntermissionTick) {
+        this.callbacks.onIntermissionTick(Math.max(0, this.intermissionTimer));
+      }
+      return;
+    }
     this.intermissionTimer -= dt;
 
     if (this.callbacks.onIntermissionTick) {

@@ -5,6 +5,7 @@ import { EnemyHealth } from './EnemyHealth';
 import { EnemyAI } from './EnemyAI';
 import { PlayerHealth } from '../player/PlayerHealth';
 import { EnemyProjectileManager } from './EnemyProjectileManager';
+import { audio } from '../audio/AudioManager';
 
 /**
  * Enemy entity representing hostile combatants.
@@ -576,6 +577,7 @@ export class Enemy implements DamageableTarget {
     // If AI triggered a melee attack, deal damage to PlayerHealth
     if (attackAction.attacked) {
       playerHealth.takeDamage(attackAction.damage, this.position);
+      audio.enemyMelee(this.position, this.isBossEnemy);
     }
 
     // 6. Arm Swing / Melee Slash Animation
@@ -652,6 +654,7 @@ export class Enemy implements DamageableTarget {
                 this.config.rangedSpeed,
                 true
               );
+              audio.enemyShot(this.position, true);
             } else {
               // Standard enemy fires tactical assault rifle from left arm
               const rifleMuzzlePos = new THREE.Vector3(-0.36, 1.0, 0.5).applyMatrix4(this.group.matrixWorld);
@@ -662,6 +665,7 @@ export class Enemy implements DamageableTarget {
                 this.config.rangedSpeed,
                 false
               );
+              audio.enemyShot(this.position, false);
             }
           }
         }

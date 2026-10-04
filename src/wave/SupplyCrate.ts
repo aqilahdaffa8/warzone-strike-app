@@ -233,6 +233,10 @@ export class SupplyCrate {
     this.lifetimePaused = true;
   }
 
+  public resumeLifetime(): void {
+    this.lifetimePaused = false;
+  }
+
   public claim(): CrateRewardData | null {
     if (this.isClaimed) return null;
     this.isClaimed = true;

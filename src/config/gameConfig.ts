@@ -320,7 +320,7 @@ export const GAME_CONFIG: GameConfig = {
   },
   supplyDrop: {
     interactionRadius: 2.5,
-    hiddenLifetime: 10.0,    // Time (seconds) crate stays hidden in mini-timeline before becoming visible
+    hiddenLifetime: 2.0,     // Short airdrop delay (seconds) before the crate appears. Must stay well below intermissionDuration.
     displayLifetime: 45.0,   // Time (seconds) crate is visible and claimable before auto-disappearing
     arenaMinX: -29,
     arenaMaxX: 29,

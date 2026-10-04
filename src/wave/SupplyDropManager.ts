@@ -236,6 +236,10 @@ export class SupplyDropManager {
     this.activeCrate?.pauseLifetime();
   }
 
+  public resumeActiveCrateLifetime(): void {
+    this.activeCrate?.resumeLifetime();
+  }
+
   public clearCrate(): void {
     if (this.activeCrate) {
       this.activeCrate.dispose();

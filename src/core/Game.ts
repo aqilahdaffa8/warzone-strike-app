@@ -10,7 +10,7 @@ import { Sniper } from '../weapons/Sniper';
 import { Knife } from '../weapons/Knife';
 import { Bazooka } from '../weapons/Bazooka';
 import { AssaultRifle } from '../weapons/AssaultRifle';
-import { WeaponType, DamageableTarget } from '../weapons/Weapon';
+import { WeaponType, DamageableTarget, FireResult } from '../weapons/Weapon';
 import { TargetDummy } from '../environment/TargetDummy';
 import { Enemy } from '../enemies/Enemy';
 import { Boss } from '../enemies/Boss';
@@ -29,6 +29,7 @@ import { LeaderboardClient } from '../leaderboard/LeaderboardClient';
 import { MockLeaderboardClient } from '../leaderboard/MockLeaderboardClient';
 import { QueueSubmissionResult, ScoreSubmissionQueue } from '../leaderboard/ScoreSubmissionQueue';
 import { ScorePayload } from '../scoring/ScoreManager';
+import { audio } from '../audio/AudioManager';
 
 export class Game {
   private readonly canvas: HTMLCanvasElement;
@@ -58,6 +59,17 @@ export class Game {
   private activeWeaponType: WeaponType = 'sniper';
   private primaryWeaponType: 'sniper' | 'akm' | 'm4' = 'sniper';
   private isLeftMouseDown: boolean = false;
+
+  // Audio feedback state (footsteps, reload cues, enemy vocalizations)
+  private readonly audioForward: THREE.Vector3 = new THREE.Vector3();
+  private lastReloadState: boolean = false;
+  private lastReloadWeapon: WeaponType | null = null;
+  private footstepDistance: number = 0;
+  private footstepFlip: boolean = false;
+  private lastPlayerX: number = 0;
+  private lastPlayerZ: number = 0;
+  private wasAirborne: boolean = false;
+  private enemyGrowlTimer: number = 3;
 
   private readonly spawnManager: SpawnManager;
   private readonly waveManager: WaveManager;
@@ -151,17 +163,19 @@ export class Game {
     // 10. Grenades & Explosions with Screen Shake Feedback
     this.grenadeManager = new GrenadeManager(GAME_CONFIG.grenade, this.scene, colliders);
     this.grenadeManager.onExplosion = (pos) => {
+      audio.explosion(pos, 'grenade');
       this.playerController.triggerExplosionShake(pos, 32.0);
       const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= 6.0);
       if (hitAny) {
-        this.hud.showHitmarker(false);
+        this.showHit(false);
       }
     };
     this.bazooka.onExplosion = (pos) => {
+      audio.explosion(pos, 'rocket');
       this.playerController.triggerExplosionShake(pos, 35.0);
       const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= 6.0);
       if (hitAny) {
-        this.hud.showHitmarker(false);
+        this.showHit(false);
       }
     };
 
@@ -193,6 +207,7 @@ export class Game {
           this.hud.setSupplyInteractionAvailable(false);
         },
         onCrateLanded: (_pos, isBoss) => {
+          audio.crateLanded();
           this.hud.showToast(
             isBoss ? '⭐ WARLORD SUPPLY CRATE MENDARAT! (CEK MINIMAP)' : '📦 SUPPLY CRATE MENDARAT! (CEK MINIMAP)',
             'warning',
@@ -222,6 +237,8 @@ export class Game {
       this.spawnManager,
       {
         onWaveStarted: (waveNumber, isBoss, totalEnemies) => {
+          audio.waveStart(isBoss);
+          audio.setMusic(isBoss ? 'boss' : 'combat');
           this.hud.hideIntermission();
           this.hud.hideBossBar();
           this.hud.updateWaveInfo(waveNumber, isBoss, totalEnemies, totalEnemies);
@@ -241,11 +258,18 @@ export class Game {
           if (this.supplyModal.getIsOpen()) {
             this.supplyModal.close('cancelled');
           }
+          // Time is up: an unopened crate disappears immediately and the next wave starts.
+          // (The intermission countdown is frozen while the supply menu is open, so this
+          // never fires mid-selection.)
           if (this.supplyDropManager.hasAvailableCrate()) {
             this.supplyDropManager.clearCrate();
+            this.hud.setSupplyInteractionAvailable(false);
+            this.hud.showToast('⚠️ SUPPLY CRATE HILANG — WAVE BERIKUTNYA DIMULAI', 'info', 3000);
           }
         },
         onWaveCompleted: (waveNumber) => {
+          audio.waveClear();
+          audio.setMusic('calm');
           this.scoreManager.addWaveClear(waveNumber);
           const isBoss = isBossWave(waveNumber, GAME_CONFIG.boss);
           // Spawn physical 3D supply crate in arena; player presses E to open
@@ -254,6 +278,7 @@ export class Game {
           this.hud.setSupplyInteractionAvailable(false);
         },
         onBossSpawned: (boss) => {
+          audio.bossRoar();
           this.hud.showBossBar(boss.bossTitle, boss.getHp(), boss.getMaxHp());
         },
         onBossDefeated: () => {
@@ -355,6 +380,7 @@ export class Game {
     });
 
     this.playerHealth.onDamageTaken((_amount, sourcePos) => {
+      audio.playerHurt(_amount);
       if (sourcePos && this.state === 'PLAYING') {
         const playerPos = this.playerController.position;
         const toSource = new THREE.Vector3().subVectors(sourcePos, playerPos);
@@ -471,6 +497,7 @@ export class Game {
       this.scene
     );
     enemy.onDeath((killedEnemy, isHeadshot) => {
+      audio.enemyDeath(killedEnemy.position, false);
       this.scoreManager.addRegularKill(isHeadshot);
       this.waveManager.notifyEnemyKilled(killedEnemy);
     });
@@ -490,6 +517,7 @@ export class Game {
       this.scene
     );
     boss.onDeath((killedBoss, isHeadshot) => {
+      audio.enemyDeath(killedBoss.position, true);
       this.scoreManager.addBossKill(isHeadshot);
       this.waveManager.notifyEnemyKilled(killedBoss);
     });
@@ -516,6 +544,7 @@ export class Game {
       this.scene
     );
     enemy.onDeath((killedEnemy, isHeadshot) => {
+      audio.enemyDeath(killedEnemy.position, false);
       this.scoreManager.addRegularKill(isHeadshot);
       this.waveManager.notifyEnemyKilled(killedEnemy);
     });
@@ -528,6 +557,97 @@ export class Game {
       enemy.dispose();
     }
     this.enemies.length = 0;
+  }
+
+  /** Shows the hitmarker and plays the matching hit sound (tick / headshot ding). */
+  private showHit(isHeadshot: boolean): void {
+    this.hud.showHitmarker(isHeadshot);
+    audio.hitmarker(isHeadshot);
+  }
+
+  /** Shared post-fire handling for Sniper / AKM / M4: score, SFX and hit feedback. */
+  private handleFireResult(kind: 'sniper' | 'akm' | 'm4', res: FireResult): void {
+    if (res.fired) {
+      this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
+      if (kind === 'sniper') {
+        audio.sniperShot();
+        if (this.sniper.getAmmo().inMag > 0) {
+          audio.sniperBolt();
+        }
+      } else {
+        audio.rifleShot(kind);
+      }
+      if (res.hit) {
+        this.showHit(!!res.isHeadshot);
+      }
+    } else if (res.reason === 'empty') {
+      audio.dryFire();
+    }
+  }
+
+  /** Plays reload start/finish cues by watching the active weapon's reload state. */
+  private updateReloadAudio(isReloading: boolean): void {
+    if (this.lastReloadWeapon !== this.activeWeaponType) {
+      this.lastReloadWeapon = this.activeWeaponType;
+      this.lastReloadState = isReloading;
+      return;
+    }
+    if (isReloading === this.lastReloadState) return;
+    this.lastReloadState = isReloading;
+
+    const kind = this.activeWeaponType;
+    if (kind === 'sniper' || kind === 'akm' || kind === 'm4' || kind === 'bazooka') {
+      if (isReloading) {
+        audio.reloadStart(kind);
+      } else {
+        audio.reloadEnd(kind);
+      }
+    }
+  }
+
+  /** Listener position, footsteps, landing thuds and ambient enemy growls. */
+  private updateAudioFeedback(dt: number, livingEnemies: Enemy[]): void {
+    const pos = this.playerController.position;
+    this.camera.getWorldDirection(this.audioForward);
+    audio.setListener(pos, this.audioForward.x, this.audioForward.z);
+
+    const moved = Math.hypot(pos.x - this.lastPlayerX, pos.z - this.lastPlayerZ);
+    this.lastPlayerX = pos.x;
+    this.lastPlayerZ = pos.z;
+
+    if (pos.y <= 0.02) {
+      if (this.wasAirborne) {
+        this.wasAirborne = false;
+        this.footstepDistance = 0;
+        audio.land();
+      }
+      // Ignore large jumps (respawn / teleport)
+      if (moved > 0 && moved < 1.5) {
+        this.footstepDistance += moved;
+        const sprinting =
+          this.playerController.isSprintKeyPressed() && this.playerController.getStaminaRatio() > 0;
+        const stride = sprinting ? 2.5 : 1.9;
+        if (this.footstepDistance >= stride) {
+          this.footstepDistance -= stride;
+          this.footstepFlip = !this.footstepFlip;
+          audio.footstep(sprinting, this.footstepFlip);
+        }
+      }
+    } else {
+      this.wasAirborne = true;
+    }
+
+    this.enemyGrowlTimer -= dt;
+    if (this.enemyGrowlTimer <= 0) {
+      this.enemyGrowlTimer = 2.5 + Math.random() * 3.5;
+      const nearby = livingEnemies.filter((e) => e.position.distanceTo(pos) < 35);
+      if (nearby.length > 0) {
+        const chosen = nearby[Math.floor(Math.random() * nearby.length)];
+        if (chosen) {
+          audio.enemyGrowl(chosen.position, chosen instanceof Boss);
+        }
+      }
+    }
   }
 
   private getTargets(): DamageableTarget[] {
@@ -565,6 +685,7 @@ export class Game {
           this.hud.setSupplyInteractionAvailable(false);
         } else {
           // Cancelled/closed: Do not delete crate. Player can re-open it if time allows.
+          this.supplyDropManager.resumeActiveCrateLifetime();
           this.hud.setClaimRewardAvailable(false);
         }
       },
@@ -576,6 +697,7 @@ export class Game {
   }
 
   private handleSupplyClaim(type: SupplyItemType, isBossWave: boolean): void {
+    audio.pickup();
     switch (type) {
       case 'health_pack': {
         const healAmt = isBossWave ? 100 : 45;
@@ -663,6 +785,7 @@ export class Game {
     }
 
     this.activeWeaponType = type;
+    audio.weaponSwitch();
 
     if (type === 'sniper') {
       this.sniper.setActive(true);
@@ -682,6 +805,10 @@ export class Game {
   private setupEventListeners(): void {
     window.addEventListener('resize', this.onResize);
     document.addEventListener('pointerlockchange', this.onPointerLockChange);
+
+    // Browsers require a user gesture before audio can start
+    window.addEventListener('pointerdown', this.onAudioUnlock, true);
+    window.addEventListener('keydown', this.onAudioUnlock, true);
 
     // Prevent browser context menu on right click to allow sniper scoping
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -739,6 +866,10 @@ export class Game {
     }
   }
 
+  private onAudioUnlock = (): void => {
+    audio.unlock();
+  };
+
   private onWheel = (e: WheelEvent): void => {
     if (this.state !== 'PLAYING' || document.pointerLockElement !== this.canvas) {
       return;
@@ -769,40 +900,26 @@ export class Game {
       this.isLeftMouseDown = true;
       const targets = this.getTargets();
       if (this.activeWeaponType === 'sniper') {
-        const res = this.sniper.fire(this.arena.getRaycastObstacles(), targets);
-        if (res.fired) {
-          this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
-          if (res.hit) {
-            this.hud.showHitmarker(!!res.isHeadshot);
-          }
-        }
+        this.handleFireResult('sniper', this.sniper.fire(this.arena.getRaycastObstacles(), targets));
       } else if (this.activeWeaponType === 'knife') {
         const res = this.knife.attack(this.arena.getRaycastObstacles(), targets);
+        if (res.attacked) {
+          audio.knifeSlash(!!res.hit);
+        }
         if (res.attacked && res.hit) {
           this.scoreManager.recordShot(true, !!res.isHeadshot);
-          this.hud.showHitmarker(!!res.isHeadshot);
+          this.showHit(!!res.isHeadshot);
         }
       } else if (this.activeWeaponType === 'bazooka') {
         const res = this.bazooka.fire();
         if (res) {
+          audio.bazookaFire();
           this.scoreManager.recordShot(false, false);
         }
       } else if (this.activeWeaponType === 'akm') {
-        const res = this.akm.fire(this.arena.getRaycastObstacles(), targets);
-        if (res.fired) {
-          this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
-          if (res.hit) {
-            this.hud.showHitmarker(!!res.isHeadshot);
-          }
-        }
+        this.handleFireResult('akm', this.akm.fire(this.arena.getRaycastObstacles(), targets));
       } else if (this.activeWeaponType === 'm4') {
-        const res = this.m4.fire(this.arena.getRaycastObstacles(), targets);
-        if (res.fired) {
-          this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
-          if (res.hit) {
-            this.hud.showHitmarker(!!res.isHeadshot);
-          }
-        }
+        this.handleFireResult('m4', this.m4.fire(this.arena.getRaycastObstacles(), targets));
       }
     }
 
@@ -833,6 +950,15 @@ export class Game {
   };
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    // M: Toggle audio mute (works in every state)
+    if (e.code === 'KeyM' && !e.repeat) {
+      const muted = audio.toggleMute();
+      if (this.state === 'PLAYING') {
+        this.hud.showToast(muted ? '🔇 AUDIO MUTE (M)' : '🔊 AUDIO AKTIF (M)', 'info', 1500);
+      }
+      return;
+    }
+
     if (this.state !== 'PLAYING') return;
 
     // When supply selection modal is open, ignore game hotkeys and allow quick exit via Escape or E
@@ -896,6 +1022,7 @@ export class Game {
     if (this.state !== 'PLAYING') return;
     const thrown = this.grenadeManager.throwGrenade(this.camera);
     if (thrown) {
+      audio.grenadeThrow();
       this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
     }
   }
@@ -923,6 +1050,7 @@ export class Game {
   public handlePlayerDeath(): void {
     if (this.state === 'GAME_OVER' || this.state === 'SUBMITTING_SCORE' || this.state === 'SCORE_SUBMITTED') return;
     this.isVictory = false;
+    audio.playerDeath();
 
     if (this.supplyModal.getIsOpen()) {
       this.supplyModal.close();
@@ -1091,7 +1219,7 @@ export class Game {
     try {
       this.canvas.requestPointerLock();
     } catch (_) {}
-    this.waveManager.startFirstWave();
+    // Wave 1 is started by setState('PLAYING') above (WaveManager is in NOT_STARTED after reset).
   }
 
   /**
@@ -1166,6 +1294,7 @@ export class Game {
 
     switch (this.state) {
       case 'PLAYING':
+        audio.setDuck(false);
         if (this.startOverlay) this.startOverlay.style.display = 'none';
         this.pauseMenu.hide();
         this.gameOverScreen.hide();
@@ -1177,6 +1306,7 @@ export class Game {
         break;
 
       case 'PAUSED':
+        audio.setDuck(true);
         this.pauseMenu.show();
         this.gameOverScreen.hide();
         this.playerController.setEnabled(false);
@@ -1187,6 +1317,8 @@ export class Game {
         break;
 
       case 'MENU':
+        audio.setDuck(false);
+        audio.setMusic('calm');
         if (this.startOverlay) this.startOverlay.style.display = 'flex';
         this.pauseMenu.hide();
         this.gameOverScreen.hide();
@@ -1199,6 +1331,7 @@ export class Game {
         break;
 
       case 'GAME_OVER':
+        audio.setDuck(false);
         if (document.pointerLockElement) {
           document.exitPointerLock();
         }
@@ -1211,6 +1344,12 @@ export class Game {
         this.hud.hide();
 
         if (!this.currentScorePayload) {
+          audio.setMusic('off');
+          if (this.isVictory) {
+            audio.victory();
+          } else {
+            audio.defeat();
+          }
           this.scoreManager.finalizeSession();
           this.currentScorePayload = this.scoreManager.generatePayload(
             this.identityProvider.getIdentity().playerId,
@@ -1302,21 +1441,9 @@ export class Game {
       if (this.isLeftMouseDown && document.pointerLockElement === this.canvas) {
         const targets = this.getTargets();
         if (this.activeWeaponType === 'akm') {
-          const res = this.akm.fire(this.arena.getRaycastObstacles(), targets);
-          if (res.fired) {
-            this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
-            if (res.hit) {
-              this.hud.showHitmarker(!!res.isHeadshot);
-            }
-          }
+          this.handleFireResult('akm', this.akm.fire(this.arena.getRaycastObstacles(), targets));
         } else if (this.activeWeaponType === 'm4') {
-          const res = this.m4.fire(this.arena.getRaycastObstacles(), targets);
-          if (res.fired) {
-            this.scoreManager.recordShot(!!res.hit, !!res.isHeadshot);
-            if (res.hit) {
-              this.hud.showHitmarker(!!res.isHeadshot);
-            }
-          }
+          this.handleFireResult('m4', this.m4.fire(this.arena.getRaycastObstacles(), targets));
         }
       }
 
@@ -1361,6 +1488,8 @@ export class Game {
         }
       }
 
+      this.updateAudioFeedback(dt, livingEnemies);
+
       const activeCratePos = this.supplyDropManager.getActiveCratePosition();
       this.hud.updateRadar(
         this.playerController.position,
@@ -1378,6 +1507,8 @@ export class Game {
       );
 
       // 5. Update WaveManager (Spawning queue, wave scaling, intermission countdown, boss transitions)
+      // Safe window: freeze the intermission countdown while the supply menu is open.
+      this.waveManager.setIntermissionPaused(this.supplyModal.getIsOpen());
       this.waveManager.update(dt, this.playerController.position, livingEnemies);
 
       // Supply selection has its own 10-second timer, independent of wave intermission.
@@ -1439,6 +1570,8 @@ export class Game {
           ? this.m4.getIsReloading()
           : false;
 
+      this.updateReloadAudio(isReloading);
+
       const reloadProgress =
         this.activeWeaponType === 'sniper'
           ? this.sniper.getReloadProgress()
@@ -1475,6 +1608,8 @@ export class Game {
     window.removeEventListener('mouseup', this.onMouseUp);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('wheel', this.onWheel);
+    window.removeEventListener('pointerdown', this.onAudioUnlock, true);
+    window.removeEventListener('keydown', this.onAudioUnlock, true);
 
     this.playerController.dispose();
     this.sniper.dispose();

@@ -244,6 +244,18 @@ Nilai awal **[TENTATIVE]** untuk playtesting pertama. Seluruh angka di tabel ini
 | Boss | Size cap | 3.5× |
 | Score | Enemy kill / headshot bonus / boss kill | 100 / +50 / +1000 |
 
+## 15b. Audio (SFX dan Musik)
+
+Implementasi: `src/audio/AudioManager.ts` (singleton `audio`), disintesis penuh dengan Web Audio API tanpa file eksternal.
+
+- **Senjata:** tembakan Sniper (+ bolt-action), AKM, M4, Bazooka, tebasan/tusukan Knife, lemparan Granat, ledakan (granat dan roket, posisional), klik peluru habis, ganti senjata, reload (mulai/selesai).
+- **Feedback:** hitmarker biasa dan headshot (ding), damage pemain, kematian pemain.
+- **Pemain:** langkah kaki (walk/sprint), pendaratan setelah lompat.
+- **Musuh:** serangan melee, tembakan rifle/plasma Boss, geraman acak, suara mati, raungan Boss. Semua posisional (volume, filter jarak, stereo pan).
+- **Alur game:** stinger wave start/clear, supply crate, pickup, defeat/victory.
+- **BGM adaptif:** `calm` (menu & intermission), `combat` (wave biasa), `boss` (boss wave); di-duck saat Pause, berhenti saat Game Over.
+- **Kontrol:** `M` untuk mute/unmute (tersimpan di localStorage). AudioContext baru aktif setelah gesture pertama pemain (kebijakan autoplay browser).
+
 ## 16. Target Arsitektur
 
 ```text

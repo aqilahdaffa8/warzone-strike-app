@@ -731,10 +731,10 @@ export class HUD {
 
   public updateGrenadeCount(count: number): void {
     if (this.slotGrenadeText) {
-      this.slotGrenadeText.textContent = `FRAG: ${count}`;
+      this.slotGrenadeText.textContent = `GRENADE: ${count}`;
     }
     if (this.grenadeCountEl) {
-      this.grenadeCountEl.textContent = `FRAG: ${count} [G]`;
+      this.grenadeCountEl.textContent = `GRENADE: ${count} [G]`;
     }
   }
 
