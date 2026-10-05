@@ -5,13 +5,7 @@ import { UPGRADE_CONFIG, UpgradeKind, UpgradeSteps } from '../config/upgradeConf
 
 export interface HUDCallbacks {
   onReloadRequested?: () => void;
-  onResetAmmoRequested?: () => void;
-  onResetDummiesRequested?: () => void;
-  onSpawnEnemyRequested?: () => void;
-  onClearEnemiesRequested?: () => void;
   onSwitchWeaponRequested?: (type: WeaponType) => void;
-  onSkipWaveRequested?: () => void;
-  onSpawnBossRequested?: () => void;
   onThrowGrenadeRequested?: () => void;
   onClaimRewardRequested?: () => void;
 }
@@ -59,8 +53,6 @@ export class HUD {
   // Health
   private readonly healthBarFill: HTMLElement | null;
   private readonly healthValueText: HTMLElement | null;
-  private readonly debugDamageBtn: HTMLButtonElement | null;
-  private readonly debugResetBtn: HTMLButtonElement | null;
 
   // Weapon Slots & Name
   private readonly weaponNameText: HTMLElement | null;
@@ -96,20 +88,6 @@ export class HUD {
   private previousHp: number = 100;
   private damageVignetteTimeout: number | null = null;
 
-  // Debug Buttons
-  private readonly debugSwitchSniperBtn: HTMLButtonElement | null;
-  private readonly debugSwitchKnifeBtn: HTMLButtonElement | null;
-  private readonly debugSwitchBazookaBtn: HTMLButtonElement | null;
-  private readonly debugReloadBtn: HTMLButtonElement | null;
-  private readonly debugResetAmmoBtn: HTMLButtonElement | null;
-  private readonly debugResetDummiesBtn: HTMLButtonElement | null;
-  private readonly debugSkipWaveBtn: HTMLButtonElement | null;
-  private readonly debugSpawnBossBtn: HTMLButtonElement | null;
-  private readonly debugSpawnEnemyBtn: HTMLButtonElement | null;
-  private readonly debugClearEnemiesBtn: HTMLButtonElement | null;
-  private readonly debugThrowGrenadeBtn: HTMLButtonElement | null;
-  private readonly debugClaimSuppliesBtn: HTMLButtonElement | null;
-
   private unsubscribeHealth: (() => void) | null = null;
   private isCurrentlyScoped: boolean = false;
   private activeWeapon: WeaponType = 'sniper';
@@ -144,8 +122,6 @@ export class HUD {
 
     this.healthBarFill = document.querySelector<HTMLElement>('#hud-health-fill');
     this.healthValueText = document.querySelector<HTMLElement>('#hud-health-val');
-    this.debugDamageBtn = document.querySelector<HTMLButtonElement>('#btn-debug-damage');
-    this.debugResetBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset');
 
     this.weaponNameText = document.querySelector<HTMLElement>('#hud-weapon-name');
     this.slotSniper = document.querySelector<HTMLElement>('#slot-sniper');
@@ -175,19 +151,6 @@ export class HUD {
     this.damageVignette = document.querySelector<HTMLElement>('#damage-vignette');
     this.previousHp = health.getHp();
 
-    this.debugSwitchSniperBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-sniper');
-    this.debugSwitchKnifeBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-knife');
-    this.debugSwitchBazookaBtn = document.querySelector<HTMLButtonElement>('#btn-debug-switch-bazooka');
-    this.debugReloadBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reload');
-    this.debugResetAmmoBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset-ammo');
-    this.debugResetDummiesBtn = document.querySelector<HTMLButtonElement>('#btn-debug-reset-dummies');
-    this.debugSkipWaveBtn = document.querySelector<HTMLButtonElement>('#btn-debug-skip-wave');
-    this.debugSpawnBossBtn = document.querySelector<HTMLButtonElement>('#btn-debug-spawn-boss');
-    this.debugSpawnEnemyBtn = document.querySelector<HTMLButtonElement>('#btn-debug-spawn-enemy');
-    this.debugClearEnemiesBtn = document.querySelector<HTMLButtonElement>('#btn-debug-clear-enemies');
-    this.debugThrowGrenadeBtn = document.querySelector<HTMLButtonElement>('#btn-debug-throw-grenade');
-    this.debugClaimSuppliesBtn = document.querySelector<HTMLButtonElement>('#btn-debug-claim-supplies');
-
     this.setupListeners(health, callbacks);
   }
 
@@ -195,20 +158,6 @@ export class HUD {
     this.unsubscribeHealth = health.onHealthChange((current, max) => {
       this.updateHealthDisplay(current, max);
     });
-
-    if (this.debugDamageBtn) {
-      this.debugDamageBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        health.takeDamage(15);
-      });
-    }
-
-    if (this.debugResetBtn) {
-      this.debugResetBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        health.reset();
-      });
-    }
 
     if (this.slotSniper && callbacks?.onSwitchWeaponRequested) {
       this.slotSniper.addEventListener('click', (e) => {
@@ -242,90 +191,6 @@ export class HUD {
       this.slotM4.addEventListener('click', (e) => {
         e.stopPropagation();
         callbacks.onSwitchWeaponRequested!('m4');
-      });
-    }
-
-    if (this.debugSwitchSniperBtn && callbacks?.onSwitchWeaponRequested) {
-      this.debugSwitchSniperBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onSwitchWeaponRequested!('sniper');
-      });
-    }
-
-    if (this.debugSwitchKnifeBtn && callbacks?.onSwitchWeaponRequested) {
-      this.debugSwitchKnifeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onSwitchWeaponRequested!('knife');
-      });
-    }
-
-    if (this.debugSwitchBazookaBtn && callbacks?.onSwitchWeaponRequested) {
-      this.debugSwitchBazookaBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onSwitchWeaponRequested!('bazooka');
-      });
-    }
-
-    if (this.debugReloadBtn && callbacks?.onReloadRequested) {
-      this.debugReloadBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onReloadRequested!();
-      });
-    }
-
-    if (this.debugResetAmmoBtn && callbacks?.onResetAmmoRequested) {
-      this.debugResetAmmoBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onResetAmmoRequested!();
-      });
-    }
-
-    if (this.debugResetDummiesBtn && callbacks?.onResetDummiesRequested) {
-      this.debugResetDummiesBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onResetDummiesRequested!();
-      });
-    }
-
-    if (this.debugSkipWaveBtn && callbacks?.onSkipWaveRequested) {
-      this.debugSkipWaveBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onSkipWaveRequested!();
-      });
-    }
-
-    if (this.debugSpawnBossBtn && callbacks?.onSpawnBossRequested) {
-      this.debugSpawnBossBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onSpawnBossRequested!();
-      });
-    }
-
-    if (this.debugSpawnEnemyBtn && callbacks?.onSpawnEnemyRequested) {
-      this.debugSpawnEnemyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onSpawnEnemyRequested!();
-      });
-    }
-
-    if (this.debugClearEnemiesBtn && callbacks?.onClearEnemiesRequested) {
-      this.debugClearEnemiesBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onClearEnemiesRequested!();
-      });
-    }
-
-    if (this.debugClaimSuppliesBtn && callbacks?.onClaimRewardRequested) {
-      this.debugClaimSuppliesBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onClaimRewardRequested!();
-      });
-    }
-
-    if (this.debugThrowGrenadeBtn && callbacks?.onThrowGrenadeRequested) {
-      this.debugThrowGrenadeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onThrowGrenadeRequested!();
       });
     }
 

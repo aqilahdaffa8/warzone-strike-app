@@ -11,7 +11,6 @@ import { Knife } from '../weapons/Knife';
 import { Bazooka } from '../weapons/Bazooka';
 import { AssaultRifle } from '../weapons/AssaultRifle';
 import { WeaponType, DamageableTarget, FireResult } from '../weapons/Weapon';
-import { TargetDummy } from '../environment/TargetDummy';
 import { Enemy } from '../enemies/Enemy';
 import { Boss } from '../enemies/Boss';
 import { EnemyProjectileManager } from '../enemies/EnemyProjectileManager';
@@ -76,7 +75,6 @@ export class Game {
   private readonly spawnManager: SpawnManager;
   private readonly waveManager: WaveManager;
 
-  private readonly targetDummies: TargetDummy[] = [];
   private readonly enemies: Enemy[] = [];
   private enemySpawnCounter: number = 0;
   private readonly hud: HUD;
@@ -131,7 +129,6 @@ export class Game {
     const colliders = this.arena.getColliders();
     this.playerController = new PlayerController(
       this.camera,
-      this.playerHealth,
       colliders,
       GAME_CONFIG.player
     );
@@ -209,10 +206,7 @@ export class Game {
       }
     );
 
-    // 13. Environment Target Dummies
-    this.spawnTargetDummies();
-
-    // 14. Spawn Manager & Wave Manager (Endless Waves & Multi-Bosses)
+    // 13. Spawn Manager & Wave Manager (Endless Waves & Multi-Bosses)
     this.spawnManager = new SpawnManager(GAME_CONFIG.wave, GAME_CONFIG.enemy, colliders);
     this.waveManager = new WaveManager(
       GAME_CONFIG.wave,
@@ -283,39 +277,6 @@ export class Game {
           else if (this.activeWeaponType === 'm4') this.m4.reload();
         }
       },
-      onResetAmmoRequested: () => {
-        this.sniper.resetAmmo();
-      },
-      onResetDummiesRequested: () => {
-        this.targetDummies.forEach((d) => d.reset());
-      },
-      onSkipWaveRequested: () => {
-        // Fast forward wave for QA testing: defeat all living regular enemies
-        const living = this.enemies.filter((e) => !e.getIsDead());
-        for (const enemy of living) {
-          enemy.takeDamage(99999, false);
-        }
-      },
-      onSpawnBossRequested: () => {
-        // Force spawn boss immediately for testing
-        const bossRadius = GAME_CONFIG.enemy.radius * 2.0;
-        const bossHeight = GAME_CONFIG.enemy.height * 2.0;
-        const livingPositions = this.enemies.filter((e) => !e.getIsDead()).map((e) => e.position);
-        const spawnPos = this.spawnManager.getValidSpawnPosition(
-          this.playerController.position,
-          livingPositions,
-          bossRadius,
-          bossHeight
-        );
-        const boss = this.spawnWaveBoss(spawnPos, Math.max(5, this.waveManager.getWaveNumber()));
-        this.hud.showBossBar(boss.bossTitle, boss.getHp(), boss.getMaxHp());
-      },
-      onSpawnEnemyRequested: () => {
-        this.spawnEnemy();
-      },
-      onClearEnemiesRequested: () => {
-        this.clearEnemies();
-      },
       onSwitchWeaponRequested: (type: WeaponType) => {
         if (this.state === 'PLAYING') {
           this.switchWeapon(type);
@@ -340,7 +301,7 @@ export class Game {
     this.hud.setBazookaUnlocked(false);
     this.hud.setSupplyInteractionAvailable(false);
 
-    this.pauseMenu = new PauseMenu(this.playerController, this.playerHealth);
+    this.pauseMenu = new PauseMenu(this.playerController);
     this.pauseMenu.setOnResume(() => {
       this.enterGame();
     });
@@ -415,60 +376,6 @@ export class Game {
     this.scene.add(sunLight);
   }
 
-  private spawnTargetDummies(): void {
-    // Dummy 0: Close-range Melee Training Dummy
-    // Located at (0, 0, 9.5). Player starts at (0, 0, 12).
-    // Initial distance is 2.5m (> 2.0m knife range): Knife misses from spawn point.
-    // Stepping forward ~1m (distance <= 2.0m): Knife attacks hit and deal 35 (body) or 52.5 (headshot)!
-    const dummy0 = new TargetDummy(
-      'dummy-close-melee',
-      new THREE.Vector3(0, 0, 9.5),
-      0,
-      GAME_CONFIG.dummy
-    );
-    this.targetDummies.push(dummy0);
-    this.scene.add(dummy0.group);
-
-    // Dummy 1: Open field target (distance ~14m from start position (0, 0, 12))
-    const dummy1 = new TargetDummy(
-      'dummy-open-midrange',
-      new THREE.Vector3(-4, 0, -2),
-      0,
-      GAME_CONFIG.dummy
-    );
-    this.targetDummies.push(dummy1);
-    this.scene.add(dummy1.group);
-
-    // Dummy 2: Long-distance target (distance ~34m from start position)
-    const dummy2 = new TargetDummy(
-      'dummy-long-range',
-      new THREE.Vector3(5, 0, -22),
-      -Math.PI / 8,
-      GAME_CONFIG.dummy
-    );
-    this.targetDummies.push(dummy2);
-    this.scene.add(dummy2.group);
-
-    // Dummy 3: Placed directly behind shipping container-6 (at 0, 1.3, -6)
-    const dummy3 = new TargetDummy(
-      'dummy-behind-container',
-      new THREE.Vector3(0, 0, -10),
-      0,
-      GAME_CONFIG.dummy
-    );
-    this.targetDummies.push(dummy3);
-    this.scene.add(dummy3.group);
-
-    // Dummy 4: Placed behind concrete barrier-2 (at -8, 0.5, 0)
-    const dummy4 = new TargetDummy(
-      'dummy-behind-barrier',
-      new THREE.Vector3(-8, 0, 3),
-      Math.PI,
-      GAME_CONFIG.dummy
-    );
-    this.targetDummies.push(dummy4);
-    this.scene.add(dummy4.group);
-  }
 
   public spawnWaveEnemy(position: THREE.Vector3, config: EnemyConfig): Enemy {
     this.enemySpawnCounter++;
@@ -634,7 +541,7 @@ export class Game {
   }
 
   private getTargets(): DamageableTarget[] {
-    return [...this.targetDummies, ...this.enemies];
+    return this.enemies;
   }
 
   public openSupplyModal(waveNumber: number, isBossWave: boolean): void {
@@ -1261,9 +1168,6 @@ export class Game {
     if (this.supplyModal.getIsOpen()) {
       this.supplyModal.close();
     }
-    for (const dummy of this.targetDummies) {
-      dummy.reset();
-    }
 
     // 5. Reset Wave Manager, Score Manager & HUD
     this.waveManager.reset();
@@ -1473,12 +1377,7 @@ export class Game {
       this.akm.update(dt);
       this.m4.update(dt);
 
-      // 3. Update Target Dummies (Billboarding health bars, damage popups, respawn timers)
-      for (let i = 0; i < this.targetDummies.length; i++) {
-        this.targetDummies[i].update(dt, this.camera.position);
-      }
-
-      // 4. Update Hostile Enemies (Pursuit, Collision Sliding, Melee Attacks, Death Cleanup)
+      // 3. Update Hostile Enemies (Pursuit, Collision Sliding, Melee Attacks, Death Cleanup)
       const livingEnemies = this.enemies.filter((e) => !e.getIsDead());
       const livingEnemyPositions: THREE.Vector3[] = livingEnemies.map((e) => e.position);
 
@@ -1633,9 +1532,6 @@ export class Game {
     this.grenadeManager.dispose();
     this.projectileManager.dispose();
     this.supplyDropManager.dispose();
-    for (const dummy of this.targetDummies) {
-      dummy.dispose();
-    }
     for (const enemy of this.enemies) {
       enemy.dispose();
     }

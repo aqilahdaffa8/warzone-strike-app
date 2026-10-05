@@ -144,11 +144,46 @@ Setiap fase diakhiri dengan: `npm run build` lolos, `npm run dev` tanpa error co
 
 ## Phase 10 — Visual dan Audio Polish
 
-Baru setelah gameplay inti stabil dan diuji: ganti placeholder dengan asset final (GLB/GLTF dari user), animasi, VFX, muzzle flash, hit feedback, audio, scope presentation, polish environment dan UI. Jangan mengubah kontrak gameplay demi kebutuhan visual kecuali benar-benar perlu.
+Baru setelah gameplay inti stabil dan diuji: animasi, VFX, muzzle flash, hit feedback, audio, scope presentation, polish environment dan UI. Jangan mengubah kontrak gameplay demi kebutuhan visual kecuali benar-benar perlu.
 
-**Acceptance:**
-- [ ] Semua acceptance fase 2–9 masih lulus setelah asset diganti
-- [ ] Frame rate tetap wajar
+**Keputusan:** visual prosedural (primitive geometry + material Three.js) diterima sebagai hasil akhir. Asset GLB/GLTF tidak dipakai. Audio disintesis penuh lewat Web Audio API (tanpa file audio). Karena itu tidak ada entri asset eksternal di `CREDITS.md`.
+
+**Status implementasi (diperiksa dari kode):**
+- [x] Audio SFX + BGM adaptif (`AudioManager.ts`), mute `M`
+- [x] Muzzle flash Sniper dan AssaultRifle; efek ledakan Bazooka dan Granat
+- [x] Hit feedback: hitmarker biasa/headshot, damage vignette, hit flash emissive musuh
+- [x] Animasi prosedural: serangan/jalan/mati musuh, recoil Bazooka, tebasan Knife, head-bob kamera
+- [x] Scope overlay, fog, bayangan, HUD lengkap, modal supply
+
+**Acceptance (wajib diuji manual di browser, lihat `AGENTS.md` bagian 5):**
+- [ ] `npm run build` lolos tanpa error TypeScript
+- [ ] `npm run dev` berjalan, console browser tanpa error
+- [ ] Semua acceptance fase 2–9 masih lulus
+- [ ] Acceptance Supply Crate dan Senjata Tambahan (di bawah) lulus
+- [ ] Frame rate tetap wajar (catat FPS rata-rata dan terendah di wave 10 dan wave boss)
+
+### Acceptance tambahan — Supply Crate, Upgrade, Senjata Tambahan (`GAME_SPEC.md` 15a)
+- [ ] Crate muncul setelah wave selesai dan hilang bila intermission habis tanpa dibuka
+- [ ] Hitung mundur intermission berhenti selama menu supply terbuka
+- [ ] Jumlah pilihan sesuai wave: 1 (wave 1-4), 2 (wave 5-9), 3 (wave 10+)
+- [ ] Upgrade Reload/Damage/Max HP bertumpuk sampai batas maksimum lalu tidak muncul lagi; boss wave memberi 2 step
+- [ ] Mengambil senapan/sniper baru menggantikan senjata utama dan langsung dipegang
+- [ ] Amunisi, granat (`G`), upgrade, dan loadout ter-reset bersih saat run baru
+- [ ] Pergantian senjata saat reload, scope, atau lempar granat tidak meninggalkan state rusak
+
+### Laporan hasil uji Fase 10
+Isi per butir: lulus / gagal / tidak dapat diuji. Jangan menulis "sudah dites" tanpa menjalankannya (Rule 13).
+
+| Butir | Hasil | Catatan |
+|---|---|---|
+| Build | | |
+| Dev server + console | | |
+| Fase 2–9 regresi | | |
+| Supply/senjata tambahan | | |
+| FPS wave 10 (avg / min) | | |
+| FPS wave boss (avg / min) | | |
+
+**Opsional (tidak menghalangi penutupan fase, hanya visual, jangan ubah logic raycast):** muzzle flash/back-blast Bazooka, tracer peluru dan impact dinding Sniper.
 
 ---
 

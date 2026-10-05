@@ -57,6 +57,7 @@ export class Bazooka implements Weapon {
   private recoilRot = new THREE.Euler();
 
   // Projectiles & FX
+  private readonly raycaster = new THREE.Raycaster();
   private readonly activeRockets: RocketProjectile[] = [];
   private readonly activeExplosions: RocketExplosionFX[] = [];
   private readonly activeSmoke: SmokePuff[] = [];
@@ -427,16 +428,71 @@ export class Bazooka implements Weapon {
 
       // Advance position
       const step = rocket.direction.clone().multiplyScalar(rocket.speed * dt);
+      const stepDist = step.length();
       const nextPos = rocket.position.clone().add(step);
 
-      // Check collision with living targets
       let impacted = false;
       let impactPoint = nextPos.clone();
+      let directHitTarget: DamageableTarget | null = null;
 
+      // 1. Continuous Raycast along flight segment against obstacles and living enemy hitboxes
+      this.raycaster.set(rocket.position, rocket.direction);
+      this.raycaster.far = stepDist + 0.15;
+
+      const candidateMeshes: THREE.Object3D[] = [...obstacles];
       for (const target of targets) {
-        if (!target.getIsDead() && target.position) {
-          const dist = nextPos.distanceTo(target.position);
-          if (dist < 1.4) {
+        if (!target.getIsDead()) {
+          candidateMeshes.push(...target.getHitboxMeshes());
+        }
+      }
+
+      const intersects = this.raycaster.intersectObjects(candidateMeshes, false);
+      if (intersects.length > 0) {
+        impacted = true;
+        impactPoint = intersects[0].point.clone();
+        if (intersects[0].object.userData && intersects[0].object.userData.target) {
+          directHitTarget = intersects[0].object.userData.target as DamageableTarget;
+        }
+      }
+
+      // 2. Cylinder / Bounding Proximity fallback (catches any near-grazes or large models)
+      if (!impacted) {
+        for (const target of targets) {
+          if (!target.getIsDead() && target.position) {
+            const enemyScale = (target as any).scaleMultiplier || ((target as any).isBossEnemy ? 2.0 : 1.0);
+            const hitRadius = 0.85 * enemyScale;
+            const hitHeight = 1.85 * enemyScale;
+
+            const dx = nextPos.x - target.position.x;
+            const dz = nextPos.z - target.position.z;
+            const horizDist = Math.hypot(dx, dz);
+
+            if (
+              horizDist <= hitRadius &&
+              nextPos.y >= target.position.y - 0.2 &&
+              nextPos.y <= target.position.y + hitHeight + 0.3
+            ) {
+              impacted = true;
+              impactPoint = nextPos.clone();
+              directHitTarget = target;
+              break;
+            }
+          }
+        }
+      }
+
+      // 3. Ground / Floor Collision Check
+      if (!impacted && nextPos.y <= 0.1) {
+        impacted = true;
+        impactPoint = nextPos.clone();
+        impactPoint.y = 0.05;
+      }
+
+      // 4. Obstacle AABB Check
+      if (!impacted) {
+        for (const obs of obstacles) {
+          const box = new THREE.Box3().setFromObject(obs);
+          if (box.containsPoint(nextPos)) {
             impacted = true;
             impactPoint = nextPos.clone();
             break;
@@ -444,31 +500,14 @@ export class Bazooka implements Weapon {
         }
       }
 
-      // Check collision with obstacles & floor
-      if (!impacted) {
-        if (nextPos.y <= 0.1) {
-          impacted = true;
-          impactPoint.y = 0.1;
-        } else {
-          for (const obs of obstacles) {
-            const box = new THREE.Box3().setFromObject(obs);
-            if (box.containsPoint(nextPos)) {
-              impacted = true;
-              impactPoint = nextPos.clone();
-              break;
-            }
-          }
-        }
-      }
-
-      // Check timeout
+      // 5. Check timeout
       if (rocket.lifeTimer >= rocket.maxLife) {
         impacted = true;
       }
 
       if (impacted) {
         try {
-          this.detonateRocket(impactPoint, targets);
+          this.detonateRocket(impactPoint, targets, directHitTarget);
         } catch (err) {
           console.error('Error detonating rocket:', err);
         } finally {
@@ -554,7 +593,11 @@ export class Bazooka implements Weapon {
     });
   }
 
-  private detonateRocket(pos: THREE.Vector3, targets: DamageableTarget[]): void {
+  private detonateRocket(
+    pos: THREE.Vector3,
+    targets: DamageableTarget[],
+    directHitTarget?: DamageableTarget | null
+  ): void {
     const blastRadius = this.config.blastRadius;
     const maxDamage = this.config.damage * this.damageMultiplier;
 
@@ -587,14 +630,25 @@ export class Bazooka implements Weapon {
       duration: 0.5,
     });
 
-    // AoE damage with falloff
+    // AoE damage with accurate 3D distance and falloff
     for (const target of targets) {
       if (target.getIsDead() || !target.position) continue;
-      const dist = pos.distanceTo(target.position);
-      if (dist <= blastRadius) {
-        const falloff = 1.0 - (dist / blastRadius) * 0.5;
+
+      const enemyScale = (target as any).scaleMultiplier || ((target as any).isBossEnemy ? 2.0 : 1.0);
+      const enemyHeight = 1.8 * enemyScale;
+      // Clamp Y to enemy's vertical extent so distance is measured to the body, not only the floor
+      const clampedY = THREE.MathUtils.clamp(pos.y, target.position.y, target.position.y + enemyHeight);
+      const closestPoint = new THREE.Vector3(target.position.x, clampedY, target.position.z);
+      const dist = pos.distanceTo(closestPoint);
+
+      if (target === directHitTarget || dist <= 1.0) {
+        // Direct rocket impact: full damage
+        target.takeDamage(Math.round(maxDamage), false, pos);
+      } else if (dist <= blastRadius) {
+        // Splash damage with smooth falloff
+        const falloff = Math.max(0.2, 1.0 - (dist / blastRadius) * 0.7);
         const damage = Math.round(maxDamage * falloff);
-        target.takeDamage(damage, false, target.position.clone().add(new THREE.Vector3(0, 1, 0)));
+        target.takeDamage(damage, false, closestPoint);
       }
     }
   }

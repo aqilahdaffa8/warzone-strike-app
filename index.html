@@ -166,37 +166,15 @@
         height: 2px;
       }
 
-      /* Top-left Info Badge */
-      #info-overlay {
-        position: absolute;
-        top: 16px;
-        left: 16px;
-        background: rgba(13, 17, 23, 0.85);
-        backdrop-filter: blur(4px);
-        padding: 8px 14px;
-        border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        font-size: 12px;
-        letter-spacing: 0.5px;
-        pointer-events: none;
-      }
+      /* Top-left Radar / Minimap */
       #hud-radar {
         position: absolute;
-        top: 112px;
+        top: 16px;
         left: 16px;
         width: 168px;
         height: 168px;
         border-radius: 50%;
         pointer-events: none;
-      }
-      .title {
-        font-weight: 700;
-        font-size: 13px;
-        color: #58a6ff;
-        text-transform: uppercase;
       }
 
       /* Top-center Wave & Boss Status */
@@ -482,50 +460,27 @@
         transition: width 0.15s ease-out;
       }
 
-      /* Top-right Debug Controls */
-      #hud-debug-panel {
+      /* Top-right Combat Stats Panel */
+      #hud-stats-panel {
         position: absolute;
         top: 16px;
         right: 16px;
-        background: rgba(13, 17, 23, 0.85);
+        background: rgba(13, 17, 23, 0.82);
         backdrop-filter: blur(4px);
-        padding: 10px 14px;
+        padding: 8px 12px;
         border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        pointer-events: auto;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        pointer-events: none;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 5px;
       }
-      .debug-title {
+      .stats-panel-title {
         font-size: 11px;
-        font-weight: 600;
-        color: #8b949e;
+        font-weight: 700;
+        color: #58a6ff;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-      }
-      .debug-buttons {
-        display: flex;
-        gap: 8px;
-      }
-      .btn-debug {
-        background: #21262d;
-        color: #c9d1d9;
-        border: 1px solid #30363d;
-        padding: 6px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.15s ease;
-      }
-      .btn-debug:hover {
-        background: #30363d;
-        color: #ffffff;
-        border-color: #8b949e;
-      }
-      .btn-debug:active {
-        transform: scale(0.97);
       }
 
       /* Bottom-left Health Display */
@@ -1319,16 +1274,11 @@
           <span class="supply-prompt-text">BUKA SUPPLY CRATE</span>
         </div>
 
-        <!-- Top-left info -->
-        <div id="info-overlay">
-          <span class="title">Warzone Strike — Phase 6 &amp; 7</span>
-          <span>Infinite Waves &amp; Warlord Boss Battles (Waves 5, 10, 15...)</span>
-        </div>
         <canvas id="hud-radar" width="168" height="168" role="img" aria-label="Radar showing player direction and nearby enemies"></canvas>
 
-        <!-- Top-right Debug Controls & Stats Readout -->
-        <div id="hud-debug-panel">
-          <span class="debug-title">Weapons &amp; Ballistics</span>
+        <!-- Top-right Combat Stats Readout -->
+        <div id="hud-stats-panel">
+          <span class="stats-panel-title">Combat Stats</span>
           <div class="stats-grid">
             <div class="stat-item">
               <span>Shots:</span>
@@ -1350,32 +1300,6 @@
               <span>Enemies:</span>
               <span id="stat-enemies-count" class="stat-num">0</span>
             </div>
-          </div>
-          <div class="debug-buttons">
-            <button id="btn-debug-switch-sniper" class="btn-debug" title="Hotkey: 1">[1] Sniper</button>
-            <button id="btn-debug-switch-knife" class="btn-debug" title="Hotkey: 2">[2] Knife</button>
-            <button id="btn-debug-switch-bazooka" class="btn-debug" title="Hotkey: 3">[3] Bazooka</button>
-          </div>
-          <div class="debug-buttons">
-            <button id="btn-debug-throw-grenade" class="btn-debug" title="Hotkey: G">Frag (G)</button>
-            <button id="btn-debug-claim-supplies" class="btn-debug" title="Hotkey: E">Claim (E)</button>
-          </div>
-          <div class="debug-buttons">
-            <button id="btn-debug-reload" class="btn-debug" title="Hotkey: R">Reload (R)</button>
-            <button id="btn-debug-reset-ammo" class="btn-debug">Reset Ammo</button>
-            <button id="btn-debug-reset-dummies" class="btn-debug">Dummies</button>
-          </div>
-          <div class="debug-buttons">
-            <button id="btn-debug-skip-wave" class="btn-debug" title="Skip current wave / trigger intermission">Next Wave</button>
-            <button id="btn-debug-spawn-boss" class="btn-debug" title="Force spawn Boss immediately">Spawn Boss</button>
-          </div>
-          <div class="debug-buttons">
-            <button id="btn-debug-spawn-enemy" class="btn-debug" title="Spawn an active hostile enemy">+ Enemy</button>
-            <button id="btn-debug-clear-enemies" class="btn-debug" title="Clear all active enemies">Clear All</button>
-          </div>
-          <div class="debug-buttons">
-            <button id="btn-debug-damage" class="btn-debug" title="Keyboard hotkey: H or K">-15 HP (H)</button>
-            <button id="btn-debug-reset" class="btn-debug">Reset HP</button>
           </div>
         </div>
 
@@ -1518,16 +1442,6 @@
               step="0.0001"
               value="0.0022"
             />
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-header">
-              <span>Debug Health Testing</span>
-            </div>
-            <div class="debug-buttons" style="margin-top: 4px;">
-              <button id="btn-pause-damage" class="btn-debug" style="flex: 1;">-15 HP</button>
-              <button id="btn-pause-reset" class="btn-debug" style="flex: 1;">Reset HP</button>
-            </div>
           </div>
 
           <div class="modal-controls">

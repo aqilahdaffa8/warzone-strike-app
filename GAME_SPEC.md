@@ -33,7 +33,7 @@ Main Menu → Masuk Arena → Wave dimulai → Musuh spawn → Pemain bertarung
 
 ## 3. Scope MVP (dikunci)
 
-Termasuk: 1 arena, 1 jenis enemy, 1 model boss, 2 senjata (sniper + knife), infinite waves, boss tiap wave kelipatan 5, player health, score, headshot, HUD, pause, game over, mock player identity, mock leaderboard, score submission queue, retry submission.
+Termasuk: 1 arena, 1 jenis enemy, 1 model boss, senjata (sniper, knife, AKM, M4, RPG-7 Bazooka, granat frag), supply crate + upgrade permanen (lihat 15a), audio prosedural (lihat 15b), infinite waves, boss tiap wave kelipatan 5, player health, score, headshot, HUD, pause, game over, mock player identity, mock leaderboard, score submission queue, retry submission.
 
 **Tidak termasuk** (jangan dikerjakan kecuali diminta eksplisit): multiplayer, multiple maps, multiple enemy/boss types, inventory, weapon shop, character customization, skill tree, perk, progression kompleks, registrasi/login buatan sendiri, integrasi leaderboard resmi sebelum spesifikasi tersedia, MySQL untuk gameplay, desktop wrapper sebelum web stabil.
 
@@ -106,7 +106,7 @@ Capsule tunggal tidak punya kepala. Enemy placeholder terdiri dari **body (Capsu
 
 ## 8. Enemy
 
-Satu jenis enemy biasa. **Tipe serangan: melee** (asumsi MVP; enemy ranged di luar scope).
+Satu jenis enemy biasa. **Tipe serangan enemy biasa: melee.** Boss juga memiliki serangan jarak jauh (rifle/plasma; parameter `ranged*` di config).
 
 ```text
 Spawn → target Player → berjalan menuju Player → masuk attack range

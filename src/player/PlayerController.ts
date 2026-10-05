@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { PlayerConfig } from '../config/gameConfig';
-import { PlayerHealth } from './PlayerHealth';
 
 /**
  * First-person player controller handling movement, mouse look, AABB collision sliding,
@@ -8,7 +7,6 @@ import { PlayerHealth } from './PlayerHealth';
  */
 export class PlayerController {
   private readonly camera: THREE.PerspectiveCamera;
-  private readonly health: PlayerHealth;
   private readonly colliders: THREE.Box3[];
 
   // Config parameters
@@ -67,12 +65,10 @@ export class PlayerController {
 
   constructor(
     camera: THREE.PerspectiveCamera,
-    health: PlayerHealth,
     colliders: THREE.Box3[],
     config: PlayerConfig
   ) {
     this.camera = camera;
-    this.health = health;
     this.colliders = colliders;
 
     this.speed = config.speed;
@@ -187,11 +183,6 @@ export class PlayerController {
       case 'ShiftLeft':
       case 'ShiftRight':
         this.keys.sprint = true;
-        break;
-      case 'KeyH':
-      case 'KeyK':
-        // Debug shortcut: reduce health by 15 for acceptance verification
-        this.health.takeDamage(15);
         break;
     }
   };
