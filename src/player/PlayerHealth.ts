@@ -8,12 +8,14 @@ export type DamageTakenCallback = (amount: number, sourcePos?: THREE.Vector3) =>
  */
 export class PlayerHealth {
   private currentHp: number;
-  private readonly maxHp: number;
+  private maxHp: number;
+  private readonly baseMaxHp: number;
   private readonly listeners: Set<HealthChangeCallback> = new Set();
   private readonly damageListeners: Set<DamageTakenCallback> = new Set();
 
   constructor(maxHp: number = 100) {
     this.maxHp = Math.max(1, maxHp);
+    this.baseMaxHp = this.maxHp;
     this.currentHp = this.maxHp;
   }
 
@@ -70,6 +72,20 @@ export class PlayerHealth {
 
     this.currentHp = Math.min(this.maxHp, this.currentHp + amount);
     this.notify();
+  }
+
+  /** Permanently raises max HP (supply upgrade) and grants the same amount of current HP. */
+  public increaseMaxHp(amount: number): void {
+    if (amount <= 0 || this.isDead()) return;
+    this.maxHp += amount;
+    this.currentHp += amount;
+    this.notify();
+  }
+
+  /** Restores the original max HP (new run). Call before reset(). */
+  public resetMaxHp(): void {
+    this.maxHp = this.baseMaxHp;
+    this.currentHp = Math.min(this.currentHp, this.maxHp);
   }
 
   public reset(): void {

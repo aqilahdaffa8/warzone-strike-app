@@ -1,6 +1,7 @@
 import { PlayerHealth } from '../player/PlayerHealth';
 import { WeaponStats } from '../weapons/Sniper';
 import { WeaponType } from '../weapons/Weapon';
+import { UPGRADE_CONFIG, UpgradeKind, UpgradeSteps } from '../config/upgradeConfig';
 
 export interface HUDCallbacks {
   onReloadRequested?: () => void;
@@ -44,10 +45,10 @@ export class HUD {
   private scorePopupTimeout: number | null = null;
   private readonly intermissionBanner: HTMLElement | null;
   private readonly intermissionTimerText: HTMLElement | null;
-  private readonly claimRewardBtn: HTMLButtonElement | null;
   private readonly rewardNoticeEl: HTMLElement | null;
   private readonly rewardNoticeText: HTMLElement | null;
   private readonly toastContainer: HTMLElement | null;
+  private readonly upgradeContainer: HTMLElement | null;
 
   // Boss Health Bar Elements
   private readonly bossContainer: HTMLElement | null;
@@ -130,10 +131,10 @@ export class HUD {
     this.scorePopupEl = document.querySelector<HTMLElement>('#hud-score-popup');
     this.intermissionBanner = document.querySelector<HTMLElement>('#hud-intermission-banner');
     this.intermissionTimerText = document.querySelector<HTMLElement>('#hud-intermission-val');
-    this.claimRewardBtn = document.querySelector<HTMLButtonElement>('#btn-claim-reward');
     this.rewardNoticeEl = document.querySelector<HTMLElement>('#hud-reward-notice');
     this.rewardNoticeText = document.querySelector<HTMLElement>('#hud-reward-notice-text');
     this.toastContainer = document.querySelector<HTMLElement>('#hud-toast-container');
+    this.upgradeContainer = document.querySelector<HTMLElement>('#hud-upgrades');
     this.supplyPrompt = document.querySelector<HTMLElement>('#hud-supply-prompt');
 
     this.bossContainer = document.querySelector<HTMLElement>('#hud-boss-container');
@@ -311,13 +312,6 @@ export class HUD {
       this.debugClearEnemiesBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         callbacks.onClearEnemiesRequested!();
-      });
-    }
-
-    if (this.claimRewardBtn && callbacks?.onClaimRewardRequested) {
-      this.claimRewardBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        callbacks.onClaimRewardRequested!();
       });
     }
 
@@ -702,16 +696,6 @@ export class HUD {
     if (this.intermissionBanner) {
       this.intermissionBanner.style.display = 'none';
     }
-    this.setClaimRewardAvailable(false);
-  }
-
-  /**
-   * Sets whether the quick-claim supplies button is visible on intermission banner.
-   */
-  public setClaimRewardAvailable(available: boolean): void {
-    if (this.claimRewardBtn) {
-      this.claimRewardBtn.style.display = available ? 'inline-block' : 'none';
-    }
   }
 
   /**
@@ -726,6 +710,33 @@ export class HUD {
   public updateBazookaAmmo(current: number, reserve: number): void {
     if (this.slot3Ammo && this.slot3Name?.textContent !== 'EMPTY') {
       this.slot3Ammo.textContent = `${current} / ${reserve}`;
+    }
+  }
+
+  /**
+   * Renders one badge per owned permanent upgrade under the health bar, e.g. "DAMAGE Lv2 +20%".
+   * Only upgrades with at least one level are shown. `flashKind` makes that badge pulse once.
+   */
+  public setUpgradeBadges(steps: UpgradeSteps, flashKind?: UpgradeKind): void {
+    const container = this.upgradeContainer;
+    if (!container) return;
+    container.textContent = '';
+
+    const defs: Array<{ kind: UpgradeKind; label: string; bonus: (n: number) => string }> = [
+      { kind: 'reload', label: 'RELOAD', bonus: (n) => `+${Math.round(n * UPGRADE_CONFIG.reload.perStep * 100)}%` },
+      { kind: 'damage', label: 'DAMAGE', bonus: (n) => `+${Math.round(n * UPGRADE_CONFIG.damage.perStep * 100)}%` },
+      { kind: 'maxHp', label: 'MAX HP', bonus: (n) => `+${n * UPGRADE_CONFIG.maxHp.perStep}` },
+    ];
+
+    for (const def of defs) {
+      const level = steps[def.kind];
+      if (level <= 0) continue;
+
+      const maxed = level >= UPGRADE_CONFIG[def.kind].maxSteps;
+      const badge = document.createElement('span');
+      badge.className = 'upgrade-badge' + (maxed ? ' maxed' : '') + (def.kind === flashKind ? ' flash' : '');
+      badge.textContent = `${def.label} Lv${level} ${def.bonus(level)}${maxed ? ' MAX' : ''}`;
+      container.appendChild(badge);
     }
   }
 

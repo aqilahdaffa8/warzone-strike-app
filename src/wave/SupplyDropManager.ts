@@ -1,16 +1,10 @@
 import * as THREE from 'three';
 import { RewardConfig, SupplyDropConfig } from '../config/gameConfig';
 import { SupplyCrate, CrateRewardData } from './SupplyCrate';
-import { PlayerHealth } from '../player/PlayerHealth';
-import { Sniper } from '../weapons/Sniper';
-import { GrenadeManager } from '../weapons/Grenade';
-import { Bazooka } from '../weapons/Bazooka';
 
 export interface SupplyDropCallbacks {
-  onRewardClaimed?: (data: CrateRewardData, message: string) => void;
   onCrateAvailable?: (isBossCrate: boolean, reward: CrateRewardData) => void;
   onCrateLanded?: (position: THREE.Vector3, isBossCrate: boolean) => void;
-  onRequestSelectionModal?: (waveNumber: number, isBossWave: boolean) => void;
   onCrateExpired?: () => void;
 }
 
@@ -19,15 +13,10 @@ export class SupplyDropManager {
   private readonly supplyConfig: SupplyDropConfig;
   private readonly scene: THREE.Scene;
   private readonly colliders: THREE.Box3[];
-  private readonly playerHealth: PlayerHealth;
-  private readonly sniper: Sniper;
-  private readonly grenadeManager: GrenadeManager;
-  private readonly bazooka: Bazooka;
   private readonly callbacks: SupplyDropCallbacks;
 
   private activeCrate: SupplyCrate | null = null;
   private playerNearCrate: boolean = false;
-  private currentWaveNumber: number = 1;
   private isCurrentBossWave: boolean = false;
 
   constructor(
@@ -35,25 +24,13 @@ export class SupplyDropManager {
     supplyConfig: SupplyDropConfig,
     scene: THREE.Scene,
     colliders: THREE.Box3[],
-    playerHealth: PlayerHealth,
-    sniper: Sniper,
-    grenadeManager: GrenadeManager,
-    bazooka: Bazooka,
     callbacks: SupplyDropCallbacks = {}
   ) {
     this.config = config;
     this.supplyConfig = supplyConfig;
     this.scene = scene;
     this.colliders = colliders;
-    this.playerHealth = playerHealth;
-    this.sniper = sniper;
-    this.grenadeManager = grenadeManager;
-    this.bazooka = bazooka;
     this.callbacks = callbacks;
-  }
-
-  public getActiveCrate(): SupplyCrate | null {
-    return this.activeCrate;
   }
 
   public isPlayerNearCrate(): boolean {
@@ -78,22 +55,14 @@ export class SupplyDropManager {
   /**
    * Spawns a Tactical Airdrop Supply Crate in front of player when a wave is cleared.
    */
-  public spawnWaveSupplyCrate(playerPos: THREE.Vector3, isBossWave: boolean, waveNumber: number = 1): void {
+  public spawnWaveSupplyCrate(playerPos: THREE.Vector3, isBossWave: boolean): void {
     // Clean up any old unclaimed crate
     this.clearCrate();
 
-    this.currentWaveNumber = waveNumber;
     this.isCurrentBossWave = isBossWave;
 
     // Find a random open arena position that does not intersect an obstacle.
     const spawnPos = this.findValidSpawnPosition(playerPos);
-
-    const willUnlockBazooka = isBossWave && !this.bazooka.getIsUnlocked();
-    const rocketsCount = isBossWave
-      ? this.config.bossRocketsGiven
-      : this.bazooka.getIsUnlocked()
-      ? this.config.rocketsGiven
-      : 0;
 
     const magUpgrade = isBossWave
       ? (this.config.bossMagazineUpgrade ?? 3)
@@ -103,9 +72,10 @@ export class SupplyDropManager {
       ammo: isBossWave ? this.config.bossAmmoRefill : this.config.ammoRefill,
       health: isBossWave ? this.config.bossHealthHeal : this.config.healthHeal,
       grenades: isBossWave ? this.config.bossGrenadesGiven : this.config.grenadesGiven,
-      rockets: rocketsCount,
+      // Legacy fields: the actual rewards are now picked from the supply modal cards.
+      rockets: 0,
       magazineUpgrade: magUpgrade,
-      unlockedBazooka: willUnlockBazooka,
+      unlockedBazooka: false,
       isBossReward: isBossWave,
     };
 
@@ -124,25 +94,6 @@ export class SupplyDropManager {
   }
 
   /**
-   * Opens the interactive supply selection modal for the player to choose their reward(s).
-   */
-  public openSupplySelection(): boolean {
-    if (!this.activeCrate || this.activeCrate.getIsClaimed() || !this.playerNearCrate) {
-      return false;
-    }
-
-    if (this.callbacks.onRequestSelectionModal) {
-      this.callbacks.onRequestSelectionModal(
-        this.currentWaveNumber,
-        this.isCurrentBossWave
-      );
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
    * Consumes and marks the active crate as claimed after rewards are chosen.
    */
   public consumeActiveCrate(): void {
@@ -151,37 +102,6 @@ export class SupplyDropManager {
       this.activeCrate = null;
       this.playerNearCrate = false;
     }
-  }
-
-  /**
-   * Fallback quick-claim applying basic field restock if player doesn't open selection UI.
-   */
-  public claimActiveCrate(): boolean {
-    if (!this.activeCrate || this.activeCrate.getIsClaimed()) {
-      return false;
-    }
-
-    const data = this.activeCrate.claim();
-    this.activeCrate = null;
-    this.playerNearCrate = false;
-
-    if (!data) return false;
-
-    // Apply baseline recovery
-    this.sniper.addReserveAmmo(data.ammo);
-    this.playerHealth.heal(data.health);
-    this.grenadeManager.addGrenades(data.grenades);
-    if (data.unlockedBazooka) {
-      this.bazooka.unlock();
-    }
-    this.bazooka.addRockets(data.rockets);
-
-    const msg = `📦 FIELD SUPPLIES CLAIMED: +${data.health} HP | +${data.ammo} AMMO | +${data.grenades} BOMB`;
-    if (this.callbacks.onRewardClaimed) {
-      this.callbacks.onRewardClaimed(data, msg);
-    }
-
-    return true;
   }
 
   public update(dt: number, playerPos: THREE.Vector3): void {

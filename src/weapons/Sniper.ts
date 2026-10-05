@@ -260,9 +260,8 @@ export class Sniper implements Weapon {
         const dummy = closest.object.userData.target as DamageableTarget;
         const isHeadshot = closest.object.userData.part === 'head';
 
-        const damage = isHeadshot
-          ? this.config.bodyDamage * this.config.headshotMultiplier
-          : this.config.bodyDamage;
+        const bodyDamage = this.config.bodyDamage * this.damageMultiplier;
+        const damage = isHeadshot ? bodyDamage * this.config.headshotMultiplier : bodyDamage;
 
         this.shotsHit++;
         if (isHeadshot) {
@@ -322,7 +321,7 @@ export class Sniper implements Weapon {
     if (this.reserveAmmo <= 0) return false;
 
     this.isReloading = true;
-    this.reloadTimer = this.config.reloadDuration;
+    this.reloadTimer = this.getReloadDuration();
 
     // Reloading automatically unscopes
     if (this.isScoped) {
@@ -351,7 +350,7 @@ export class Sniper implements Weapon {
 
   public getReloadProgress(): number {
     if (!this.isReloading) return 0;
-    return Math.max(0, Math.min(1, 1 - this.reloadTimer / this.config.reloadDuration));
+    return Math.max(0, Math.min(1, 1 - this.reloadTimer / this.getReloadDuration()));
   }
 
   public getAmmo(): { inMag: number; reserve: number; maxMag: number } {
@@ -394,6 +393,23 @@ export class Sniper implements Weapon {
 
   public getIsActive(): boolean {
     return this.isActive;
+  }
+
+  private reloadSpeedMultiplier: number = 1;
+  private damageMultiplier: number = 1;
+
+  /** Supply upgrade: 1.0 = normal, 1.3 = reloads 30% faster. */
+  public setReloadSpeedMultiplier(multiplier: number): void {
+    this.reloadSpeedMultiplier = Math.max(0.1, multiplier);
+  }
+
+  /** Supply upgrade: 1.0 = normal, 1.2 = +20% damage. */
+  public setDamageMultiplier(multiplier: number): void {
+    this.damageMultiplier = Math.max(0.1, multiplier);
+  }
+
+  private getReloadDuration(): number {
+    return this.config.reloadDuration / this.reloadSpeedMultiplier;
   }
 
   public resetAmmo(): void {

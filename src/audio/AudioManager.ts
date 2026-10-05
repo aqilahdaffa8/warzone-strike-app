@@ -68,6 +68,7 @@ interface VoiceOptions {
 
 const MUTE_STORAGE_KEY = 'warzone.audio.muted';
 const DEFAULT_MAX_HEARING_DISTANCE = 80;
+const MASTER_LEVEL = 0.6;
 const MUSIC_LEVEL = 0.5;
 const MUSIC_DUCKED_LEVEL = 0.12;
 
@@ -271,7 +272,7 @@ class AudioManager {
     this.tone(g, out, t, { type: 'sine', f0: 80, f1: 22, dur: isRocket ? 1.5 : 1.2, peak: 1.2 });
     this.noise(g, out, t, { dur: 1.6, f0: 4000, f1: 150, type: 'lowpass', peak: 1.0, attack: 0.004 });
     this.noise(g, out, t, { dur: 0.4, f0: 1200, f1: 300, type: 'bandpass', q: 0.7, peak: 0.8 });
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 4; i++) {
       this.noise(g, out, t + 0.1 + Math.random() * 1.1, {
         dur: 0.04,
         f0: 3000 + Math.random() * 2000,
@@ -355,6 +356,7 @@ class AudioManager {
   // ---------------------------------------------------------------------------
 
   public footstep(isSprinting: boolean, flip: boolean): void {
+    if (!this.throttle('footstep', 110)) return;
     const g = this.graph;
     if (!g) return;
     const t = g.ctx.currentTime;
@@ -413,6 +415,7 @@ class AudioManager {
   // ---------------------------------------------------------------------------
 
   public enemyMelee(pos: Vec3Like, isBoss: boolean): void {
+    if (!this.throttle('enemyMelee', 90)) return;
     const g = this.graph;
     if (!g) return;
     const t = g.ctx.currentTime;
@@ -432,6 +435,7 @@ class AudioManager {
   }
 
   public enemyShot(pos: Vec3Like, isBoss: boolean): void {
+    if (!this.throttle('enemyShot', 70)) return;
     const g = this.graph;
     if (!g) return;
     const t = g.ctx.currentTime;
@@ -454,6 +458,7 @@ class AudioManager {
   }
 
   public enemyGrowl(pos: Vec3Like, isBoss: boolean): void {
+    if (!this.throttle('enemyGrowl', 200)) return;
     const g = this.graph;
     if (!g) return;
     const t = g.ctx.currentTime;
@@ -476,6 +481,7 @@ class AudioManager {
   }
 
   public enemyDeath(pos: Vec3Like, isBoss: boolean): void {
+    if (!this.throttle('enemyDeath', 60)) return;
     const g = this.graph;
     if (!g) return;
     const t = g.ctx.currentTime;
@@ -597,18 +603,24 @@ class AudioManager {
 
     let ctx: AudioContext;
     try {
-      ctx = new Ctor();
+      // 'playback' = larger audio buffer: trades a little latency for glitch-free sound
+      // while the main thread is busy rendering the 3D scene.
+      try {
+        ctx = new Ctor({ latencyHint: 'playback' });
+      } catch (_) {
+        ctx = new Ctor();
+      }
     } catch (err) {
       console.warn('[Audio] Failed to create AudioContext:', err);
       return null;
     }
 
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -14;
-    comp.knee.value = 20;
-    comp.ratio.value = 6;
+    comp.threshold.value = -20;
+    comp.knee.value = 12;
+    comp.ratio.value = 12;
     comp.attack.value = 0.003;
-    comp.release.value = 0.2;
+    comp.release.value = 0.15;
     comp.connect(ctx.destination);
 
     const master = ctx.createGain();
@@ -704,7 +716,7 @@ class AudioManager {
   private applyMasterVolume(): void {
     const g = this.graph;
     if (!g) return;
-    g.master.gain.setTargetAtTime(this.muted ? 0 : 1, g.ctx.currentTime, 0.02);
+    g.master.gain.setTargetAtTime(this.muted ? 0 : MASTER_LEVEL, g.ctx.currentTime, 0.02);
   }
 
   private applyMusicLevel(): void {
@@ -920,7 +932,7 @@ class AudioManager {
     if (!g) return;
     this.nextStepTime = g.ctx.currentTime + 0.1;
     if (this.schedulerTimer !== null) return;
-    this.schedulerTimer = window.setInterval(() => this.tick(), 40);
+    this.schedulerTimer = window.setInterval(() => this.tick(), 80);
   }
 
   private stopScheduler(): void {
@@ -938,7 +950,7 @@ class AudioManager {
     if (this.nextStepTime < now - 0.5) {
       this.nextStepTime = now + 0.05;
     }
-    while (this.nextStepTime < now + 0.2) {
+    while (this.nextStepTime < now + 0.4) {
       this.scheduleStep(g, this.step, this.nextStepTime);
       const bpm = MODE_BPM[this.currentMode];
       this.nextStepTime += 60 / bpm / 4;

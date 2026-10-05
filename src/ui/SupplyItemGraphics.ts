@@ -379,6 +379,138 @@ export function getRifleAmmoSvg(): string {
   `;
 }
 
+export function getReloadUpgradeSvg(): string {
+  return `
+    <svg viewBox="0 0 360 160" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="rl-mag" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#3a3d40"/>
+          <stop offset="50%" stop-color="#1f2224"/>
+          <stop offset="100%" stop-color="#2d3033"/>
+        </linearGradient>
+      </defs>
+      <!-- Speed lines -->
+      <line x1="40" y1="52" x2="112" y2="52" stroke="#58a6ff" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+      <line x1="28" y1="80" x2="104" y2="80" stroke="#58a6ff" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+      <line x1="48" y1="108" x2="116" y2="108" stroke="#58a6ff" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
+      <!-- Curved magazine -->
+      <path d="M 140 26 L 196 26 L 212 128 L 156 134 Z" fill="url(#rl-mag)" stroke="#0d0e10" stroke-width="2"/>
+      <rect x="142" y="18" width="52" height="10" rx="2" fill="#c9a24a" stroke="#6b4f12" stroke-width="1"/>
+      <line x1="150" y1="50" x2="205" y2="50" stroke="#444" stroke-width="2"/>
+      <line x1="152" y1="76" x2="207" y2="76" stroke="#444" stroke-width="2"/>
+      <line x1="154" y1="102" x2="209" y2="102" stroke="#444" stroke-width="2"/>
+      <!-- Circular reload arrow -->
+      <path d="M 282 52 A 36 36 0 1 1 262 110" fill="none" stroke="#e3b341" stroke-width="9" stroke-linecap="round"/>
+      <path d="M 250 118 L 276 122 L 262 98 Z" fill="#e3b341"/>
+      <text x="262" y="86" font-family="monospace" font-size="16" font-weight="bold" fill="#e3b341" text-anchor="middle">FAST</text>
+    </svg>
+  `;
+}
+
+export function getDamageUpgradeSvg(): string {
+  return `
+    <svg viewBox="0 0 360 160" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="dm-brass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e3b341"/>
+          <stop offset="50%" stop-color="#a37a1c"/>
+          <stop offset="100%" stop-color="#6b4f12"/>
+        </linearGradient>
+        <linearGradient id="dm-tip" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#8a1c1c"/>
+          <stop offset="100%" stop-color="#f85149"/>
+        </linearGradient>
+      </defs>
+      <!-- Burst behind the round -->
+      <polygon points="270,20 284,56 322,46 298,78 336,96 296,104 308,142 270,120 236,146 238,108 198,100 234,84 214,50 252,58" fill="#f85149" opacity="0.28"/>
+      <!-- Armor-piercing round -->
+      <rect x="60" y="62" width="130" height="38" rx="3" fill="url(#dm-brass)" stroke="#3a2a08" stroke-width="2"/>
+      <rect x="168" y="62" width="14" height="38" fill="#7a5a14"/>
+      <path d="M 190 62 L 250 72 Q 276 81 250 90 L 190 100 Z" fill="url(#dm-tip)" stroke="#4a0f0f" stroke-width="2"/>
+      <rect x="52" y="58" width="12" height="46" rx="2" fill="#6b4f12" stroke="#3a2a08" stroke-width="1.5"/>
+      <!-- Plus damage marks -->
+      <text x="278" y="62" font-family="monospace" font-size="26" font-weight="bold" fill="#ffffff" text-anchor="middle">+DMG</text>
+      <rect x="86" y="74" width="70" height="3" fill="#fff" opacity="0.35"/>
+    </svg>
+  `;
+}
+
+export function getMaxHpUpgradeSvg(): string {
+  return `
+    <svg viewBox="0 0 360 160" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="hp-plate" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4a5560"/>
+          <stop offset="55%" stop-color="#2a3138"/>
+          <stop offset="100%" stop-color="#171b1f"/>
+        </linearGradient>
+        <linearGradient id="hp-heart" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff7b72"/>
+          <stop offset="100%" stop-color="#b62324"/>
+        </linearGradient>
+      </defs>
+      <!-- Ceramic armor plate -->
+      <path d="M 180 14 L 258 34 L 258 88 Q 258 128 180 148 Q 102 128 102 88 L 102 34 Z" fill="url(#hp-plate)" stroke="#0d0e10" stroke-width="3"/>
+      <path d="M 180 26 L 246 42 L 246 88 Q 246 120 180 136 Q 114 120 114 88 L 114 42 Z" fill="none" stroke="#6e7b87" stroke-width="1.5" opacity="0.7"/>
+      <!-- Heart -->
+      <path d="M 180 108 C 140 82 148 54 168 56 C 176 57 180 64 180 64 C 180 64 184 57 192 56 C 212 54 220 82 180 108 Z" fill="url(#hp-heart)" stroke="#5c1111" stroke-width="1.5"/>
+      <!-- Plus -->
+      <rect x="276" y="52" width="10" height="34" rx="2" fill="#7ee787"/>
+      <rect x="264" y="64" width="34" height="10" rx="2" fill="#7ee787"/>
+      <text x="62" y="86" font-family="monospace" font-size="13" font-weight="bold" fill="#7ee787" text-anchor="middle">MAX</text>
+      <text x="62" y="102" font-family="monospace" font-size="13" font-weight="bold" fill="#7ee787" text-anchor="middle">HP</text>
+    </svg>
+  `;
+}
+
+export function getSniperRifleSvg(): string {
+  return `
+    <svg viewBox="0 0 360 160" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="snp-steel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3a3d40"/>
+          <stop offset="50%" stop-color="#1c1f21"/>
+          <stop offset="100%" stop-color="#2a2c2e"/>
+        </linearGradient>
+        <linearGradient id="snp-stock" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b4a3a"/>
+          <stop offset="100%" stop-color="#1f2a1e"/>
+        </linearGradient>
+        <linearGradient id="snp-lens" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#58a6ff"/>
+          <stop offset="100%" stop-color="#0d2a52"/>
+        </linearGradient>
+      </defs>
+      <!-- Long barrel + muzzle brake -->
+      <rect x="170" y="78" width="160" height="7" rx="1.5" fill="url(#snp-steel)" stroke="#111" stroke-width="0.8"/>
+      <rect x="326" y="73" width="22" height="17" rx="2" fill="#1b1c1e" stroke="#111" stroke-width="1"/>
+      <line x1="332" y1="75" x2="332" y2="88" stroke="#444" stroke-width="1.5"/>
+      <line x1="338" y1="75" x2="338" y2="88" stroke="#444" stroke-width="1.5"/>
+      <!-- Receiver and bolt -->
+      <rect x="110" y="68" width="76" height="26" rx="3" fill="url(#snp-steel)" stroke="#111" stroke-width="1.2"/>
+      <rect x="146" y="60" width="22" height="9" rx="2" fill="#2a2c2e" stroke="#111" stroke-width="1"/>
+      <circle cx="172" cy="62" r="5" fill="#222" stroke="#111" stroke-width="1"/>
+      <!-- Stock with cheek rest -->
+      <path d="M 112 70 L 52 76 Q 40 78 42 92 L 48 118 L 98 112 L 112 94 Z" fill="url(#snp-stock)" stroke="#0e140c" stroke-width="1.5"/>
+      <rect x="46" y="112" width="14" height="10" rx="2" fill="#111"/>
+      <!-- Grip and magazine -->
+      <path d="M 124 94 L 140 94 L 134 126 L 118 124 Z" fill="url(#snp-stock)" stroke="#0e140c" stroke-width="1.2"/>
+      <rect x="150" y="94" width="22" height="22" rx="2" fill="#1b1c1e" stroke="#111" stroke-width="1.2"/>
+      <!-- Bipod -->
+      <line x1="236" y1="85" x2="224" y2="128" stroke="#2a2c2e" stroke-width="4" stroke-linecap="round"/>
+      <line x1="244" y1="85" x2="256" y2="128" stroke="#2a2c2e" stroke-width="4" stroke-linecap="round"/>
+      <!-- Scope -->
+      <rect x="116" y="42" width="78" height="14" rx="4" fill="url(#snp-steel)" stroke="#111" stroke-width="1.2"/>
+      <ellipse cx="196" cy="49" rx="9" ry="10" fill="url(#snp-lens)" stroke="#111" stroke-width="1.5"/>
+      <ellipse cx="114" cy="49" rx="7" ry="8" fill="#10151c" stroke="#111" stroke-width="1.5"/>
+      <line x1="196" y1="40" x2="196" y2="58" stroke="#e6edf3" stroke-width="0.8" opacity="0.8"/>
+      <line x1="187" y1="49" x2="205" y2="49" stroke="#e6edf3" stroke-width="0.8" opacity="0.8"/>
+      <rect x="132" y="56" width="6" height="12" fill="#222"/>
+      <rect x="170" y="56" width="6" height="12" fill="#222"/>
+    </svg>
+  `;
+}
+
 // Graphic name aliases for clean importing
 export const getAkmGraphic = getAkmSvg;
 export const getM4Graphic = getM4Svg;
@@ -388,4 +520,7 @@ export const getGrenadeGraphic = getFragGrenadeSvg;
 export const getMagazineUpgradeGraphic = getDrumMagSvg;
 export const getSniperAmmoGraphic = getSniperAmmoSvg;
 export const getRifleAmmoGraphic = getRifleAmmoSvg;
-
+export const getReloadUpgradeGraphic = getReloadUpgradeSvg;
+export const getDamageUpgradeGraphic = getDamageUpgradeSvg;
+export const getMaxHpUpgradeGraphic = getMaxHpUpgradeSvg;
+export const getSniperRifleGraphic = getSniperRifleSvg;

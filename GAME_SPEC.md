@@ -244,6 +244,23 @@ Nilai awal **[TENTATIVE]** untuk playtesting pertama. Seluruh angka di tabel ini
 | Boss | Size cap | 3.5× |
 | Score | Enemy kill / headshot bonus / boss kill | 100 / +50 / +1000 |
 
+## 15a. Supply Crate (Isi Kartu & Upgrade)
+
+Implementasi: `src/ui/SupplySelectionModal.ts` (`generateOptions`), konstanta upgrade di `src/config/upgradeConfig.ts`.
+
+- **Waktu:** crate muncul beberapa detik setelah wave selesai dan hilang bila intermission habis tanpa dibuka. Hitung mundur intermission berhenti selama menu supply terbuka. Label di atas crate hanya menulis "PILIH ITEM SUPPLY" karena isinya diundi saat dibuka.
+- **5 kartu per supply (14 kartu berbeda dalam kumpulan):**
+  1. Health (selalu ada).
+  2. Amunisi untuk senjata yang sedang DIPEGANG: Roket RPG bila RPG yang dipegang, selain itu amunisi senjata utama (Sniper / AKM / M4).
+  3. Slot senjata (acak): RPG-7 (bila belum dimiliki), Sniper, AKM, atau M4, di luar senjata utama yang sedang dipakai. Bila kosong diganti upgrade.
+  4. Utilitas (acak): Granat Frag atau Drum Magazine.
+  5. Upgrade permanen (acak): Reload, Damage, atau Max HP (yang sudah maksimal tidak muncul).
+- **Upgrade permanen (bertumpuk, ada batas, reset tiap run):** Reload +15%/step (maks 4), Damage +10%/step (maks 5, senjata api dan RPG), Max HP +20/step (maks 5, HP langsung terisi sebesar penambahan). Boss wave memberi 2 step sekaligus.
+- **HUD:** lencana di bawah bar health menampilkan upgrade yang dimiliki (contoh `DAMAGE Lv2 +20%`), berkedip saat naik level, bertanda `MAX` saat penuh.
+- **Jumlah pilihan:** tetap 1 (wave 1-4), 2 (wave 5-9), 3 (wave 10+).
+- **Slot 1:** hanya satu senjata utama; mengambil senapan/sniper baru menggantikannya dan langsung dipegang.
+- **Granat:** hanya tombol `G` (slot HUD berlabel G).
+
 ## 15b. Audio (SFX dan Musik)
 
 Implementasi: `src/audio/AudioManager.ts` (singleton `audio`), disintesis penuh dengan Web Audio API tanpa file eksternal.

@@ -30,6 +30,7 @@ import { MockLeaderboardClient } from '../leaderboard/MockLeaderboardClient';
 import { QueueSubmissionResult, ScoreSubmissionQueue } from '../leaderboard/ScoreSubmissionQueue';
 import { ScorePayload } from '../scoring/ScoreManager';
 import { audio } from '../audio/AudioManager';
+import { UPGRADE_CONFIG, UpgradeKind, UpgradeSteps } from '../config/upgradeConfig';
 
 export class Game {
   private readonly canvas: HTMLCanvasElement;
@@ -58,6 +59,7 @@ export class Game {
   private hasRetriedPendingScoresOnStartup: boolean = false;
   private activeWeaponType: WeaponType = 'sniper';
   private primaryWeaponType: 'sniper' | 'akm' | 'm4' = 'sniper';
+  private upgradeSteps: UpgradeSteps = { reload: 0, damage: 0, maxHp: 0 };
   private isLeftMouseDown: boolean = false;
 
   // Audio feedback state (footsteps, reload cues, enemy vocalizations)
@@ -188,22 +190,8 @@ export class Game {
       GAME_CONFIG.supplyDrop,
       this.scene,
       colliders,
-      this.playerHealth,
-      this.sniper,
-      this.grenadeManager,
-      this.bazooka,
       {
-        onRewardClaimed: (_data, msg) => {
-          void _data;
-          this.hud.showRewardNotice(msg);
-          this.hud.setClaimRewardAvailable(false);
-          this.hud.updateGrenadeCount(this.grenadeManager.getGrenadeCount());
-          this.hud.setBazookaUnlocked(this.bazooka.getIsUnlocked());
-          this.hud.setAkmUnlocked(this.akm.getIsUnlocked());
-          this.hud.setM4Unlocked(this.m4.getIsUnlocked());
-        },
         onCrateAvailable: () => {
-          this.hud.setClaimRewardAvailable(false);
           this.hud.setSupplyInteractionAvailable(false);
         },
         onCrateLanded: (_pos, isBoss) => {
@@ -215,12 +203,8 @@ export class Game {
           );
         },
         onCrateExpired: () => {
-          this.hud.setClaimRewardAvailable(false);
           this.hud.setSupplyInteractionAvailable(false);
           this.hud.showToast('⚠️ SUPPLY CRATE TELAH KEDALUWARSA / HILANG', 'info', 3000);
-        },
-        onRequestSelectionModal: (waveNumber, isBossWave) => {
-          this.openSupplyModal(waveNumber, isBossWave);
         },
       }
     );
@@ -273,8 +257,7 @@ export class Game {
           this.scoreManager.addWaveClear(waveNumber);
           const isBoss = isBossWave(waveNumber, GAME_CONFIG.boss);
           // Spawn physical 3D supply crate in arena; player presses E to open
-          this.supplyDropManager.spawnWaveSupplyCrate(this.playerController.position, isBoss, waveNumber);
-          this.hud.setClaimRewardAvailable(false);
+          this.supplyDropManager.spawnWaveSupplyCrate(this.playerController.position, isBoss);
           this.hud.setSupplyInteractionAvailable(false);
         },
         onBossSpawned: (boss) => {
@@ -668,6 +651,9 @@ export class Game {
       currentHp: this.playerHealth.getHp(),
       maxHp: this.playerHealth.getMaxHp(),
       grenadeCount: this.grenadeManager.getGrenadeCount(),
+      primaryWeapon: this.primaryWeaponType,
+      activeWeapon: this.activeWeaponType,
+      upgradeSteps: { ...this.upgradeSteps },
     };
 
     this.supplyModal.open(
@@ -681,12 +667,10 @@ export class Game {
       (reason) => {
         if (reason === 'claimed' || reason === 'expired') {
           this.supplyDropManager.consumeActiveCrate();
-          this.hud.setClaimRewardAvailable(false);
           this.hud.setSupplyInteractionAvailable(false);
         } else {
           // Cancelled/closed: Do not delete crate. Player can re-open it if time allows.
           this.supplyDropManager.resumeActiveCrateLifetime();
-          this.hud.setClaimRewardAvailable(false);
         }
       },
     );
@@ -694,6 +678,40 @@ export class Game {
     if (document.pointerLockElement) {
       document.exitPointerLock();
     }
+  }
+
+  /** Applies a permanent supply upgrade (capped, stackable). */
+  private applyUpgrade(kind: UpgradeKind, isBossWave: boolean): void {
+    const cfg = UPGRADE_CONFIG[kind];
+    const wanted = isBossWave ? UPGRADE_CONFIG.bossSteps : UPGRADE_CONFIG.normalSteps;
+    const gained = Math.min(wanted, cfg.maxSteps - this.upgradeSteps[kind]);
+    if (gained <= 0) return;
+    this.upgradeSteps[kind] += gained;
+
+    if (kind === 'maxHp') {
+      this.playerHealth.increaseMaxHp(gained * UPGRADE_CONFIG.maxHp.perStep);
+    } else {
+      this.syncWeaponUpgrades();
+    }
+    this.hud.setUpgradeBadges(this.upgradeSteps, kind);
+  }
+
+  /** Pushes the current reload / damage upgrade multipliers into every weapon. */
+  private syncWeaponUpgrades(): void {
+    const reloadMult = 1 + this.upgradeSteps.reload * UPGRADE_CONFIG.reload.perStep;
+    const damageMult = 1 + this.upgradeSteps.damage * UPGRADE_CONFIG.damage.perStep;
+    for (const weapon of [this.sniper, this.akm, this.m4, this.bazooka]) {
+      weapon.setReloadSpeedMultiplier(reloadMult);
+      weapon.setDamageMultiplier(damageMult);
+    }
+  }
+
+  /** Clears every permanent upgrade (new run). Must run before playerHealth.reset(). */
+  private resetUpgrades(): void {
+    this.upgradeSteps = { reload: 0, damage: 0, maxHp: 0 };
+    this.syncWeaponUpgrades();
+    this.playerHealth.resetMaxHp();
+    this.hud.setUpgradeBadges(this.upgradeSteps);
   }
 
   private handleSupplyClaim(type: SupplyItemType, isBossWave: boolean): void {
@@ -733,6 +751,9 @@ export class Game {
         this.primaryWeaponType = 'm4';
         this.hud.setPrimarySlotWeapon('m4');
         this.hud.setM4Unlocked(true);
+
+        // M4 immediately occupies Slot 1 and becomes the active primary weapon.
+        this.switchWeapon('m4');
         break;
       }
       case 'magazine_upgrade': {
@@ -743,6 +764,39 @@ export class Game {
       }
       case 'sniper_ammo': {
         this.sniper.addReserveAmmo(25);
+        break;
+      }
+      case 'sniper_rifle': {
+        this.sniper.addReserveAmmo(25);
+        this.primaryWeaponType = 'sniper';
+        this.hud.setPrimarySlotWeapon('sniper');
+
+        // Sniper takes Slot 1 again and becomes the active primary weapon.
+        this.switchWeapon('sniper');
+        break;
+      }
+      case 'akm_ammo': {
+        this.akm.addReserveAmmo(60);
+        break;
+      }
+      case 'm4_ammo': {
+        this.m4.addReserveAmmo(90);
+        break;
+      }
+      case 'rpg_ammo': {
+        this.bazooka.addReserveAmmo(3);
+        break;
+      }
+      case 'reload_upgrade': {
+        this.applyUpgrade('reload', isBossWave);
+        break;
+      }
+      case 'damage_upgrade': {
+        this.applyUpgrade('damage', isBossWave);
+        break;
+      }
+      case 'max_hp_upgrade': {
+        this.applyUpgrade('maxHp', isBossWave);
         break;
       }
       case 'rifle_ammo': {
@@ -1001,8 +1055,8 @@ export class Game {
       return;
     }
 
-    // 4 or G: Throw Frag Grenade
-    if (e.code === 'Digit4' || e.code === 'Numpad4' || e.code === 'KeyG') {
+    // G: Throw Frag Grenade
+    if (e.code === 'KeyG') {
       this.throwGrenade();
       return;
     }
@@ -1159,13 +1213,18 @@ export class Game {
     }
   }
 
-  public restartGame(): void {
+  /**
+   * Resets everything that belongs to a single run (player, upgrades, weapons,
+   * enemies, supply crates, waves, score). Shared by restartGame() and returnToLobby().
+   */
+  private resetRunState(): void {
     // 1. Hide Game Over Screen
     this.gameOverScreen.hide();
     this.currentScorePayload = null;
     this.isVictory = false;
 
     // 2. Reset Player State & Position
+    this.resetUpgrades();
     this.playerHealth.reset();
     const startPos = GAME_CONFIG.player.startingPosition;
     this.playerController.resetPosition(startPos.x, startPos.y, startPos.z);
@@ -1212,7 +1271,10 @@ export class Game {
     this.hud.updateScore(0);
     this.hud.hideBossBar();
     this.hud.hideIntermission();
-    this.hud.setClaimRewardAvailable(false);
+  }
+
+  public restartGame(): void {
+    this.resetRunState();
 
     // 6. Enter Playing state & start Wave 1
     this.setState('PLAYING');
@@ -1226,57 +1288,7 @@ export class Game {
    * Returns player to main lobby / menu overlay after Game Over or mission completion.
    */
   public returnToLobby(): void {
-    // 1. Hide Game Over Screen
-    this.gameOverScreen.hide();
-    this.currentScorePayload = null;
-    this.isVictory = false;
-
-    // 2. Reset Player State & Position
-    this.playerHealth.reset();
-    const startPos = GAME_CONFIG.player.startingPosition;
-    this.playerController.resetPosition(startPos.x, startPos.y, startPos.z);
-    this.playerController.resetInputs();
-
-    // 3. Reset Weapons, Projectiles & Munitions
-    this.sniper.resetAmmo();
-    this.sniper.resetStats();
-    this.sniper.setScoped(false);
-    this.sniper.cancelReload();
-
-    this.bazooka.lock();
-    this.bazooka.resetAmmo();
-    this.akm.lock();
-    this.akm.resetAmmo();
-    this.m4.lock();
-    this.m4.resetAmmo();
-
-    this.primaryWeaponType = 'sniper';
-    this.grenadeManager.reset(1);
-    this.projectileManager.clear();
-    this.hud.updateGrenadeCount(1);
-    this.hud.setBazookaUnlocked(false);
-    this.hud.setAkmUnlocked(false);
-    this.hud.setM4Unlocked(false);
-    this.hud.setPrimarySlotWeapon('sniper');
-    this.switchWeapon('sniper');
-
-    // 4. Reset Dummies & Clear all active enemies and supply crates
-    this.clearEnemies();
-    this.supplyDropManager.clearCrate();
-    if (this.supplyModal.getIsOpen()) {
-      this.supplyModal.close();
-    }
-    for (const dummy of this.targetDummies) {
-      dummy.reset();
-    }
-
-    // 5. Reset Wave Manager, Score Manager & HUD
-    this.waveManager.reset();
-    this.scoreManager.reset(true);
-    this.hud.updateScore(0);
-    this.hud.hideBossBar();
-    this.hud.hideIntermission();
-    this.hud.setClaimRewardAvailable(false);
+    this.resetRunState();
     this.hud.hide();
 
     // 6. Return to Menu State & show Start/Lobby overlay

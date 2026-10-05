@@ -127,6 +127,23 @@ export class AssaultRifle implements Weapon {
     return this.currentMagCapacity;
   }
 
+  private reloadSpeedMultiplier: number = 1;
+  private damageMultiplier: number = 1;
+
+  /** Supply upgrade: 1.0 = normal, 1.3 = reloads 30% faster. */
+  public setReloadSpeedMultiplier(multiplier: number): void {
+    this.reloadSpeedMultiplier = Math.max(0.1, multiplier);
+  }
+
+  /** Supply upgrade: 1.0 = normal, 1.2 = +20% damage. */
+  public setDamageMultiplier(multiplier: number): void {
+    this.damageMultiplier = Math.max(0.1, multiplier);
+  }
+
+  private getReloadDuration(): number {
+    return this.config.reloadDuration / this.reloadSpeedMultiplier;
+  }
+
   public resetAmmo(): void {
     this.ammoInMag = this.currentMagCapacity;
     this.reserveAmmo = this.config.reserveAmmo;
@@ -140,8 +157,8 @@ export class AssaultRifle implements Weapon {
   }
 
   public getReloadProgress(): number {
-    if (!this.isReloading || this.config.reloadDuration <= 0) return 0;
-    return Math.min(1.0, 1.0 - this.reloadTimer / this.config.reloadDuration);
+    if (!this.isReloading || this.getReloadDuration() <= 0) return 0;
+    return Math.min(1.0, 1.0 - this.reloadTimer / this.getReloadDuration());
   }
 
   public cancelReload(): void {
@@ -158,7 +175,7 @@ export class AssaultRifle implements Weapon {
     if (this.reserveAmmo <= 0) return false;
 
     this.isReloading = true;
-    this.reloadTimer = this.config.reloadDuration;
+    this.reloadTimer = this.getReloadDuration();
     return true;
   }
 
@@ -245,7 +262,7 @@ export class AssaultRifle implements Weapon {
         hitTarget = targetData.target;
         isHeadshotHit = targetData.isHeadshot;
 
-        const baseDmg = this.config.damage;
+        const baseDmg = this.config.damage * this.damageMultiplier;
         damageDealt = isHeadshotHit ? baseDmg * this.config.headshotMultiplier : baseDmg;
         hitTarget.takeDamage(damageDealt, isHeadshotHit, finalHitPoint);
         this.spawnImpactSpark(finalHitPoint, 0xff3333);

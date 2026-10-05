@@ -214,6 +214,23 @@ export class Bazooka implements Weapon {
     this.addRockets(count);
   }
 
+  private reloadSpeedMultiplier: number = 1;
+  private damageMultiplier: number = 1;
+
+  /** Supply upgrade: 1.0 = normal, 1.3 = reloads 30% faster. */
+  public setReloadSpeedMultiplier(multiplier: number): void {
+    this.reloadSpeedMultiplier = Math.max(0.1, multiplier);
+  }
+
+  /** Supply upgrade: 1.0 = normal, 1.2 = +20% damage. */
+  public setDamageMultiplier(multiplier: number): void {
+    this.damageMultiplier = Math.max(0.1, multiplier);
+  }
+
+  private getReloadDuration(): number {
+    return this.config.reloadDuration / this.reloadSpeedMultiplier;
+  }
+
   public resetAmmo(): void {
     this.magazineAmmo = this.config.magazineCapacity;
     this.reserveAmmo = this.config.reserveAmmo;
@@ -230,8 +247,8 @@ export class Bazooka implements Weapon {
   }
 
   public getReloadProgress(): number {
-    if (!this.isReloading || this.config.reloadDuration <= 0) return 0;
-    return Math.min(1.0, 1.0 - this.reloadTimer / this.config.reloadDuration);
+    if (!this.isReloading || this.getReloadDuration() <= 0) return 0;
+    return Math.min(1.0, 1.0 - this.reloadTimer / this.getReloadDuration());
   }
 
   public cancelReload(): void {
@@ -248,7 +265,7 @@ export class Bazooka implements Weapon {
     if (this.reserveAmmo <= 0) return false;
 
     this.isReloading = true;
-    this.reloadTimer = this.config.reloadDuration;
+    this.reloadTimer = this.getReloadDuration();
     return true;
   }
 
@@ -383,7 +400,7 @@ export class Bazooka implements Weapon {
       let reloadDipY = 0;
       let reloadPitch = 0;
       if (this.isReloading) {
-        const progress = 1.0 - this.reloadTimer / this.config.reloadDuration;
+        const progress = 1.0 - this.reloadTimer / this.getReloadDuration();
         reloadDipY = -Math.sin(progress * Math.PI) * 0.18;
         reloadPitch = Math.sin(progress * Math.PI) * 0.45;
       }
@@ -539,7 +556,7 @@ export class Bazooka implements Weapon {
 
   private detonateRocket(pos: THREE.Vector3, targets: DamageableTarget[]): void {
     const blastRadius = this.config.blastRadius;
-    const maxDamage = this.config.damage;
+    const maxDamage = this.config.damage * this.damageMultiplier;
 
     if (this.onExplosion) {
       this.onExplosion(pos, blastRadius);

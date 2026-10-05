@@ -139,15 +139,8 @@ export class SupplyCrate {
 
       ctx.fillStyle = this.isBossCrate ? '#e3b341' : '#3fb950';
       ctx.font = 'bold 20px monospace';
-      const magText = this.rewardData.magazineUpgrade ? ` | +${this.rewardData.magazineUpgrade} MAG` : '';
-      const weaponText = this.rewardData.unlockedBazooka
-        ? '💥 RPG-7 UNLOCKED!'
-        : `+${this.rewardData.rockets} RCKT`;
-      ctx.fillText(
-        `${weaponText} | +${this.rewardData.ammo} AMMO | +${this.rewardData.health} HP${magText}`,
-        190,
-        74
-      );
+      // Contents are random and picked in the supply menu, so the label stays generic.
+      ctx.fillText(this.isBossCrate ? 'PILIH ITEM LANGKA (UPGRADE x2)' : 'PILIH ITEM SUPPLY', 190, 74);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
