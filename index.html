@@ -758,13 +758,13 @@
         background: #161b22;
         border: 1px solid #30363d;
         border-radius: 8px;
-        padding: 28px 36px;
-        max-width: 440px;
-        width: 90%;
+        padding: 24px 30px;
+        max-width: 500px;
+        width: 92%;
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 16px;
         text-align: center;
       }
 
@@ -783,25 +783,46 @@
       .modal-controls {
         background: #0d1117;
         border: 1px solid #21262d;
-        border-radius: 6px;
-        padding: 14px 16px;
+        border-radius: 8px;
+        padding: 12px 16px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
         font-size: 12px;
         text-align: left;
       }
       .control-row {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: 145px 1fr;
+        align-items: center;
+        column-gap: 12px;
+        padding: 3.5px 0;
+        border-bottom: 1px solid rgba(48, 54, 61, 0.35);
+      }
+      .control-row:last-child {
+        border-bottom: none;
       }
       .control-key {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         color: #58a6ff;
+        background: rgba(56, 139, 253, 0.1);
+        border: 1px solid rgba(56, 139, 253, 0.28);
+        border-radius: 4px;
+        padding: 2px 7px;
         font-weight: 600;
-        font-family: monospace;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        text-align: center;
+        width: fit-content;
+        box-sizing: border-box;
       }
       .control-desc {
         color: #c9d1d9;
+        font-size: 12px;
+        line-height: 1.35;
       }
 
       .btn-primary {
@@ -820,6 +841,62 @@
         background: #2ea043;
       }
       .btn-primary:active {
+        transform: scale(0.98);
+      }
+
+      /* Pause Overlay Actions */
+      .pause-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        margin-top: 4px;
+      }
+      .pause-btn-group {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+      }
+      .btn-pause-restart {
+        background: #21262d;
+        color: #f85149;
+        border: 1px solid rgba(248, 81, 73, 0.35);
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex: 1;
+      }
+      .btn-pause-restart:hover {
+        background: rgba(248, 81, 73, 0.15);
+        border-color: #f85149;
+        color: #ff7b72;
+      }
+      .btn-pause-restart:active {
+        transform: scale(0.98);
+      }
+      .btn-pause-lobby {
+        background: #21262d;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex: 1;
+      }
+      .btn-pause-lobby:hover {
+        background: #30363d;
+        color: #ffffff;
+        border-color: #8b949e;
+      }
+      .btn-pause-lobby:active {
         transform: scale(0.98);
       }
 
@@ -1271,7 +1348,7 @@
         <!-- Supply Interaction Prompt (Bottom-Center) -->
         <div id="hud-supply-prompt" class="hud-supply-prompt">
           <span class="supply-prompt-key">E</span>
-          <span class="supply-prompt-text">BUKA SUPPLY CRATE</span>
+          <span class="supply-prompt-text">CLAIM SUPPLY CRATE</span>
         </div>
 
         <canvas id="hud-radar" width="168" height="168" role="img" aria-label="Radar showing player direction and nearby enemies"></canvas>
@@ -1362,33 +1439,33 @@
         <div class="modal-card">
           <div class="modal-header">
             <h1>WARZONE STRIKE</h1>
-            <p>Phase 6 &amp; 7 — Infinite Waves, Difficulty Scaling &amp; Warlord Boss Encounters</p>
+            <p>Tactical Wave Survival FPS — Neutralize Hostiles &amp; Apex Warlords</p>
           </div>
 
           <div class="modal-controls">
             <div class="control-row">
-              <span class="control-key">1 / 2 / 3 / Scroll</span>
-              <span class="control-desc">Ganti Senjata (Sniper ↔ Knife ↔ RPG-7 Bazooka)</span>
+              <span class="control-key">1 / 2 / 3 / Wheel</span>
+              <span class="control-desc">Switch Weapon (Sniper ↔ Knife ↔ RPG-7)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Left Click</span>
-              <span class="control-desc">Attack (Sniper Fire / Knife Slash / Bazooka Rocket)</span>
+              <span class="control-desc">Attack (Sniper Fire / Knife Slash / Rocket)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Right Click</span>
-              <span class="control-desc">Scope Zoom (Sniper only, 20° FOV)</span>
+              <span class="control-desc">Scope Zoom (Sniper 20° FOV)</span>
             </div>
             <div class="control-row">
               <span class="control-key">R</span>
-              <span class="control-desc">Reload Sniper Magazine (2.5s)</span>
+              <span class="control-desc">Reload Magazine</span>
             </div>
             <div class="control-row">
               <span class="control-key">W / A / S / D</span>
-              <span class="control-desc">Gerak (Sliding collision)</span>
+              <span class="control-desc">Move (Sliding Collision)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Shift</span>
-              <span class="control-desc">Sprint (menggunakan stamina)</span>
+              <span class="control-desc">Sprint (Consumes Stamina)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Mouse Look</span>
@@ -1396,19 +1473,19 @@
             </div>
             <div class="control-row">
               <span class="control-key">G</span>
-              <span class="control-desc">Lempar Granat Peledak (AoE Explosion)</span>
+              <span class="control-desc">Throw Frag Grenade (AoE Blast)</span>
             </div>
             <div class="control-row">
               <span class="control-key">E</span>
-              <span class="control-desc">Klaim Peti Suplai (Ammo, HP, Granat)</span>
+              <span class="control-desc">Claim Supply Crate (Ammo, HP, Buffs)</span>
             </div>
             <div class="control-row">
               <span class="control-key">Space</span>
-              <span class="control-desc">Jump (Opsional)</span>
+              <span class="control-desc">Jump</span>
             </div>
             <div class="control-row">
               <span class="control-key">M</span>
-              <span class="control-desc">Mute / Unmute Audio</span>
+              <span class="control-desc">Toggle Audio Mute</span>
             </div>
             <div class="control-row">
               <span class="control-key">Esc</span>
@@ -1425,7 +1502,7 @@
         <div class="modal-card">
           <div class="modal-header">
             <h1>MISSION PAUSED</h1>
-            <p>Pointer lock dilepas atau tombol Esc ditekan</p>
+            <p>Game paused. Pointer lock released.</p>
           </div>
 
           <div class="setting-item">
@@ -1447,11 +1524,17 @@
           <div class="modal-controls">
             <div class="control-row">
               <span class="control-key">Esc / Resume</span>
-              <span class="control-desc">Kembali ke permainan</span>
+              <span class="control-desc">Resume mission</span>
             </div>
           </div>
 
-          <button id="btn-resume" class="btn-primary">RESUME MISSION</button>
+          <div class="pause-actions">
+            <button id="btn-resume" class="btn-primary">RESUME MISSION</button>
+            <div class="pause-btn-group">
+              <button id="btn-pause-restart" class="btn-pause-restart" type="button">RESTART MISSION</button>
+              <button id="btn-pause-lobby" class="btn-pause-lobby" type="button">RETURN TO LOBBY</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1460,21 +1543,21 @@
         <div class="modal-card supply-modal-card">
           <div class="modal-header">
             <h1 id="supply-modal-title">SUPPLIES CRATE</h1>
-            <p id="supply-modal-subtitle">PILIH ITEM DARI SUPPLIES (WAKTU BERJALAN!)</p>
+            <p id="supply-modal-subtitle">SELECT TACTICAL SUPPLY (TIME TICKING!)</p>
           </div>
           <div class="supply-modal-timer-bar">
             <div id="supply-modal-timer-track">
               <div id="supply-modal-timer-fill"></div>
             </div>
             <div class="supply-modal-timer-text">
-              ⏱️ GELOMBANG BERIKUTNYA DALAM: <span id="supply-modal-timer-seconds">10.0s</span>
+              ⏱️ NEXT WAVE IN: <span id="supply-modal-timer-seconds">10.0s</span>
             </div>
           </div>
           <div id="supply-cards-container" class="supply-cards-grid">
             <!-- Dynamic supply cards generated by SupplySelectionModal -->
           </div>
           <div class="supply-modal-footer">
-            <span id="supply-picks-remaining">Sisa Pilihan Item: 1 / 1</span>
+            <span id="supply-picks-remaining">Picks Remaining: 1 / 1</span>
           </div>
         </div>
       </div>
@@ -1526,13 +1609,13 @@
             </div>
           </div>
 
-          <div id="go-submission-status" class="submission-status">Menyiapkan submission score...</div>
+          <div id="go-submission-status" class="submission-status">Preparing score submission...</div>
           <div class="submission-actions">
             <button id="btn-retry-submission" class="btn-secondary" type="button">RETRY SUBMISSION</button>
           </div>
           <div class="game-over-actions">
-            <button id="btn-restart-game" class="btn-danger" style="flex: 1.2;">MAIN LAGI</button>
-            <button id="btn-return-lobby" class="btn-lobby">KEMBALI KE LOBBY</button>
+            <button id="btn-restart-game" class="btn-danger" style="flex: 1.2;">REDEPLOY / PLAY AGAIN</button>
+            <button id="btn-return-lobby" class="btn-lobby">RETURN TO LOBBY</button>
           </div>
         </div>
       </div>

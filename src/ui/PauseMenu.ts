@@ -3,14 +3,20 @@ import { PlayerController } from '../player/PlayerController';
 export class PauseMenu {
   private readonly root: HTMLElement | null;
   private readonly resumeBtn: HTMLButtonElement | null;
+  private readonly restartBtn: HTMLButtonElement | null;
+  private readonly returnLobbyBtn: HTMLButtonElement | null;
   private readonly sensitivitySlider: HTMLInputElement | null;
   private readonly sensitivityValueText: HTMLElement | null;
 
   private onResumeCallback?: () => void;
+  private onRestartCallback?: () => void;
+  private onReturnLobbyCallback?: () => void;
 
   constructor(controller: PlayerController) {
     this.root = document.querySelector<HTMLElement>('#pause-overlay');
     this.resumeBtn = document.querySelector<HTMLButtonElement>('#btn-resume');
+    this.restartBtn = document.querySelector<HTMLButtonElement>('#btn-pause-restart');
+    this.returnLobbyBtn = document.querySelector<HTMLButtonElement>('#btn-pause-lobby');
     this.sensitivitySlider = document.querySelector<HTMLInputElement>('#slider-sensitivity');
     this.sensitivityValueText = document.querySelector<HTMLElement>('#val-sensitivity');
 
@@ -21,12 +27,38 @@ export class PauseMenu {
     this.onResumeCallback = cb;
   }
 
+  public setOnRestart(cb: () => void): void {
+    this.onRestartCallback = cb;
+  }
+
+  public setOnReturnLobby(cb: () => void): void {
+    this.onReturnLobbyCallback = cb;
+  }
+
   private setupListeners(controller: PlayerController): void {
     if (this.resumeBtn) {
       this.resumeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (this.onResumeCallback) {
           this.onResumeCallback();
+        }
+      });
+    }
+
+    if (this.restartBtn) {
+      this.restartBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onRestartCallback) {
+          this.onRestartCallback();
+        }
+      });
+    }
+
+    if (this.returnLobbyBtn) {
+      this.returnLobbyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onReturnLobbyCallback) {
+          this.onReturnLobbyCallback();
         }
       });
     }

@@ -144,7 +144,7 @@ export class GameOverScreen {
     if (this.shotsValEl) this.shotsValEl.textContent = `${stats.shotsFired}`;
     if (this.sessionValEl) this.sessionValEl.textContent = stats.sessionId || '-';
 
-    this.setSubmissionStatus('Menyiapkan submission score...', false);
+    this.setSubmissionStatus('Preparing score submission...', false);
 
     if (this.overlay) {
       this.overlay.style.display = 'flex';

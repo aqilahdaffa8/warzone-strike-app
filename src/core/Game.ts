@@ -194,14 +194,14 @@ export class Game {
         onCrateLanded: (_pos, isBoss) => {
           audio.crateLanded();
           this.hud.showToast(
-            isBoss ? '⭐ WARLORD SUPPLY CRATE MENDARAT! (CEK MINIMAP)' : '📦 SUPPLY CRATE MENDARAT! (CEK MINIMAP)',
+            isBoss ? '⭐ WARLORD SUPPLY CRATE DROPPED! (CHECK MINIMAP)' : '📦 SUPPLY CRATE DROPPED! (CHECK MINIMAP)',
             'warning',
             4500
           );
         },
         onCrateExpired: () => {
           this.hud.setSupplyInteractionAvailable(false);
-          this.hud.showToast('⚠️ SUPPLY CRATE TELAH KEDALUWARSA / HILANG', 'info', 3000);
+          this.hud.showToast('⚠️ SUPPLY CRATE EXPIRED / LOST', 'info', 3000);
         },
       }
     );
@@ -242,7 +242,7 @@ export class Game {
           if (this.supplyDropManager.hasAvailableCrate()) {
             this.supplyDropManager.clearCrate();
             this.hud.setSupplyInteractionAvailable(false);
-            this.hud.showToast('⚠️ SUPPLY CRATE HILANG — WAVE BERIKUTNYA DIMULAI', 'info', 3000);
+            this.hud.showToast('⚠️ SUPPLY CRATE LOST — NEXT WAVE STARTING', 'info', 3000);
           }
         },
         onWaveCompleted: (waveNumber) => {
@@ -304,6 +304,12 @@ export class Game {
     this.pauseMenu = new PauseMenu(this.playerController);
     this.pauseMenu.setOnResume(() => {
       this.enterGame();
+    });
+    this.pauseMenu.setOnRestart(() => {
+      this.restartGame();
+    });
+    this.pauseMenu.setOnReturnLobby(() => {
+      this.returnToLobby();
     });
 
     this.gameOverScreen = new GameOverScreen();
@@ -915,7 +921,7 @@ export class Game {
     if (e.code === 'KeyM' && !e.repeat) {
       const muted = audio.toggleMute();
       if (this.state === 'PLAYING') {
-        this.hud.showToast(muted ? '🔇 AUDIO MUTE (M)' : '🔊 AUDIO AKTIF (M)', 'info', 1500);
+        this.hud.showToast(muted ? '🔇 AUDIO MUTED (M)' : '🔊 AUDIO UNMUTED (M)', 'info', 1500);
       }
       return;
     }
@@ -1042,11 +1048,11 @@ export class Game {
     this.setState('SUBMITTING_SCORE');
     if (!enqueueResult.persisted) {
       this.gameOverScreen.setSubmissionStatus(
-        'Score disimpan di memori sesi. localStorage tidak tersedia; submission tetap dicoba.',
+        'Score stored in session memory. localStorage unavailable; submission will still proceed.',
         false
       );
     } else {
-      this.gameOverScreen.setSubmissionStatus('Mengirim score ke mock leaderboard...', false);
+      this.gameOverScreen.setSubmissionStatus('Submitting score to mock leaderboard...', false);
     }
 
     const result = await this.scoreSubmissionQueue.submit(
@@ -1067,13 +1073,13 @@ export class Game {
 
       case 'timeout':
         this.setState('GAME_OVER');
-        this.gameOverScreen.setSubmissionStatus(`${result.message} Score tetap berada di queue.`, true);
+        this.gameOverScreen.setSubmissionStatus(`${result.message} Score remains in queue.`, true);
         break;
 
       case 'offline':
       case 'failed':
         this.setState('GAME_OVER');
-        this.gameOverScreen.setSubmissionStatus(`${result.message} Score tetap berada di queue.`, true);
+        this.gameOverScreen.setSubmissionStatus(`${result.message} Score remains in queue.`, true);
         break;
 
       case 'storage_error':
@@ -1092,7 +1098,7 @@ export class Game {
 
     this.setState('SUBMITTING_SCORE');
     this.gameOverScreen.setRetryEnabled(false);
-    this.gameOverScreen.setSubmissionStatus('Mencoba mengirim ulang score...', false);
+    this.gameOverScreen.setSubmissionStatus('Retrying score submission...', false);
 
     const result = await this.scoreSubmissionQueue.submit(
       this.currentScorePayload,
@@ -1302,7 +1308,7 @@ export class Game {
         this.playerController.setEnabled(false);
         this.pauseMenu.hide();
         this.hud.hide();
-        this.gameOverScreen.setSubmissionStatus('Score berhasil dikirim. Session ID ini tidak akan dikirim ulang.', false, true);
+        this.gameOverScreen.setSubmissionStatus('Score successfully submitted. Session ID will not be resent.', false, true);
         break;
     }
   }

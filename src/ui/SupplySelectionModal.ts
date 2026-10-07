@@ -196,7 +196,7 @@ export class SupplySelectionModal {
 
   private updatePicksDisplay(): void {
     if (this.footerEl) {
-      this.footerEl.textContent = `Sisa Pilihan Item: ${this.picksRemaining} / ${this.totalPicksAllowed}`;
+      this.footerEl.textContent = `Picks Remaining: ${this.picksRemaining} / ${this.totalPicksAllowed}`;
       this.footerEl.style.color = this.picksRemaining > 1 ? '#e3b341' : '#58a6ff';
     }
   }
@@ -279,11 +279,11 @@ export class SupplySelectionModal {
       id: 'opt-health',
       type: 'health_pack',
       title: isBossWave ? 'Trauma Medkit IFAK' : 'First Aid Medical Kit',
-      badge: 'MEDIS',
+      badge: 'MEDICAL',
       badgeColor: '#2ea043',
       description: isBossWave
-        ? 'Pemulihan darurat vital signs 100% dan perbaikan plat pelindung.'
-        : 'Perban taktis hemostatik untuk memulihkan vital signs +45 HP.',
+        ? 'Emergency 100% vital signs restoration and ballistic armor reinforcement.'
+        : 'Hemostatic tactical field dressing restoring +45 HP vital signs.',
       graphicSvg: getHealthPackGraphic(),
       statBonus: `+${healAmount} HP`,
     };
@@ -294,35 +294,35 @@ export class SupplySelectionModal {
       return {
         id: 'opt-akm-ammo',
         type: 'akm_ammo',
-        title: 'Peti Amunisi AKM 7.62mm',
-        badge: 'AMUNISI',
+        title: 'AKM 7.62mm Ammo Crate',
+        badge: 'AMMO',
         badgeColor: '#d29922',
-        description: 'Kotak amunisi 7.62x39mm untuk senapan serbu AKM yang sedang Anda pakai.',
+        description: '7.62x39mm ammunition crate for your currently equipped AKM assault rifle.',
         graphicSvg: getRifleAmmoGraphic(),
-        statBonus: '+60 Peluru AKM',
+        statBonus: '+60 AKM Rounds',
       };
     }
     if (primary === 'm4') {
       return {
         id: 'opt-m4-ammo',
         type: 'm4_ammo',
-        title: 'Peti Amunisi M4 5.56mm',
-        badge: 'AMUNISI',
+        title: 'M4 5.56mm Ammo Crate',
+        badge: 'AMMO',
         badgeColor: '#58a6ff',
-        description: 'Kotak amunisi 5.56x45mm NATO untuk M4 Carbine yang sedang Anda pakai.',
+        description: '5.56x45mm NATO ammunition crate for your currently equipped M4 Carbine.',
         graphicSvg: getRifleAmmoGraphic(),
-        statBonus: '+90 Peluru M4',
+        statBonus: '+90 M4 Rounds',
       };
     }
     return {
       id: 'opt-sniper-ammo',
       type: 'sniper_ammo',
-      title: 'Peluru Sniper .338 Lapua',
-      badge: 'AMUNISI SNIPER',
+      title: '.338 Lapua Sniper Ammo',
+      badge: 'SNIPER AMMO',
       badgeColor: '#388bfd',
-      description: 'Amunisi presisi armor-piercing kecepatan tinggi untuk senapan runduk AWM.',
+      description: 'High-velocity precision armor-piercing rounds for the AWM sniper rifle.',
       graphicSvg: getSniperAmmoGraphic(),
-      statBonus: '+25 Peluru Sniper',
+      statBonus: '+25 Sniper Rounds',
     };
   }
 
@@ -335,11 +335,11 @@ export class SupplySelectionModal {
         id: 'opt-sniper-swap',
         type: 'sniper_rifle',
         title: 'AWM Sniper Rifle',
-        badge: 'GANTI SENJATA',
+        badge: 'SWAP WEAPON',
         badgeColor: '#388bfd',
-        description: 'Kembali ke senapan runduk bolt-action dengan scope (Ganti Senjata Utama Slot 1).',
+        description: 'Return to bolt-action sniper rifle with tactical scope (Primary Slot 1).',
         graphicSvg: getSniperRifleGraphic(),
-        statBonus: 'SLOT 1 + 25 Peluru',
+        statBonus: 'SLOT 1 + 25 Rounds',
       };
     }
     if (kind === 'bazooka') {
@@ -347,11 +347,11 @@ export class SupplySelectionModal {
         id: 'opt-bazooka-unlock',
         type: 'bazooka',
         title: 'RPG-7 Rocket Launcher',
-        badge: 'SENJATA BARU',
+        badge: 'NEW WEAPON',
         badgeColor: '#f0883e',
-        description: 'Peluncur roket penghancur armor dengan daya ledak area masif (Tombol 3).',
+        description: 'Anti-armor rocket launcher with devastating high-explosive area blast (Key 3).',
         graphicSvg: getBazookaGraphic(),
-        statBonus: 'UNLOCK [3] + 3 Roket',
+        statBonus: 'UNLOCK [3] + 3 Rockets',
       };
     }
     if (kind === 'akm') {
@@ -359,22 +359,22 @@ export class SupplySelectionModal {
         id: 'opt-akm-unlock',
         type: 'akm',
         title: 'AKM 7.62x39mm Rifle',
-        badge: loadout.hasAkm ? 'GANTI SENJATA' : 'SENJATA BARU',
+        badge: loadout.hasAkm ? 'SWAP WEAPON' : 'NEW WEAPON',
         badgeColor: '#d29922',
-        description: 'Senapan serbu kaliber berat dengan penetrasi dan damage tinggi (Ganti Senjata Utama Slot 1).',
+        description: 'Heavy-caliber assault rifle with high stopping power and penetration (Primary Slot 1).',
         graphicSvg: getAkmGraphic(),
-        statBonus: 'SLOT 1 + 60 Peluru',
+        statBonus: 'SLOT 1 + 60 Rounds',
       };
     }
     return {
       id: 'opt-m4-unlock',
       type: 'm4',
       title: 'M4 Carbine 5.56mm NATO',
-      badge: loadout.hasM4 ? 'GANTI SENJATA' : 'SENJATA BARU',
+      badge: loadout.hasM4 ? 'SWAP WEAPON' : 'NEW WEAPON',
       badgeColor: '#58a6ff',
-      description: 'Senapan serbu akurasi tinggi dengan fire rate cepat dan recoil stabil (Ganti Senjata Utama Slot 1).',
+      description: 'High-accuracy assault rifle with rapid fire rate and low recoil (Primary Slot 1).',
       graphicSvg: getM4Graphic(),
-      statBonus: 'SLOT 1 + 90 Peluru',
+      statBonus: 'SLOT 1 + 90 Rounds',
     };
   }
 
@@ -382,12 +382,12 @@ export class SupplySelectionModal {
     return {
       id: 'opt-bazooka-ammo',
       type: 'rpg_ammo',
-      title: 'Roket PG-7V Heavy',
-      badge: 'AMUNISI RPG',
+      title: 'Heavy PG-7V Rockets',
+      badge: 'RPG AMMO',
       badgeColor: '#f0883e',
-      description: 'Isi ulang amunisi hulu ledak anti-armor berdaya rusak tinggi untuk RPG-7 yang sedang Anda pegang.',
+      description: 'Anti-tank high-explosive warheads for your equipped RPG-7 rocket launcher.',
       graphicSvg: getBazookaGraphic(),
-      statBonus: '+3 Roket',
+      statBonus: '+3 Rockets',
     };
   }
 
@@ -399,23 +399,23 @@ export class SupplySelectionModal {
       return {
         id: 'opt-magazine',
         type: 'magazine_upgrade',
-        title: 'Drum Magazine 75-Rounds',
-        badge: 'UPGRADE MAG',
+        title: 'Extended Drum Magazine',
+        badge: 'MAG UPGRADE',
         badgeColor: '#bc8cff',
-        description: 'Upgrade kapasitas magazine permanen agar siap tembak lebih banyak tanpa sering reload.',
+        description: 'Permanently increases magazine capacity to sustain heavy fire without reloading.',
         graphicSvg: getMagazineUpgradeGraphic(),
-        statBonus: '+2 Sniper / +10 Rifle Mag',
+        statBonus: '+2 Sniper / +10 Rifle Mag Capacity',
       };
     }
     return {
       id: 'opt-grenade',
       type: 'frag_grenade',
-      title: 'Bom Granat Frag M67',
-      badge: 'TAKTIS',
+      title: 'M67 Frag Grenades',
+      badge: 'TACTICAL',
       badgeColor: '#f85149',
-      description: 'Granat lempar berdaya ledak fragmentasi baja mematikan dalam radius 6m (Tombol G).',
+      description: 'Steel fragmentation hand grenades with lethal 6m blast radius (Key G).',
       graphicSvg: getGrenadeGraphic(),
-      statBonus: isBossWave ? '+3 Bom Granat' : '+2 Bom Granat',
+      statBonus: isBossWave ? '+3 Frag Grenades' : '+2 Frag Grenades',
     };
   }
 
@@ -430,29 +430,29 @@ export class SupplySelectionModal {
       cfg.maxSteps - steps[kind]
     );
     const levelText = `Lv ${steps[kind]} → ${steps[kind] + gain} / ${cfg.maxSteps}`;
-    const badge = isBossWave ? 'PERMANEN ★ LANGKA' : 'UPGRADE PERMANEN';
+    const badge = isBossWave ? 'PERMANENT ★ RARE' : 'PERMANENT UPGRADE';
     const badgeColor = '#e3b341';
 
     if (kind === 'reload') {
       return {
         id: 'opt-upgrade-reload',
         type: 'reload_upgrade',
-        title: 'Speed Loader Taktis',
+        title: 'Tactical Speed Loader',
         badge,
         badgeColor,
-        description: 'Latihan dan perlengkapan reload cepat. Waktu reload semua senjata berkurang secara permanen.',
+        description: 'Fast reload gear and combat drills. Permanently reduces reload time across all weapons.',
         graphicSvg: getReloadUpgradeGraphic(),
-        statBonus: `+${Math.round(gain * cfg.perStep * 100)}% KECEPATAN RELOAD (${levelText})`,
+        statBonus: `+${Math.round(gain * cfg.perStep * 100)}% RELOAD SPEED (${levelText})`,
       };
     }
     if (kind === 'damage') {
       return {
         id: 'opt-upgrade-damage',
         type: 'damage_upgrade',
-        title: 'Peluru Armor-Piercing',
+        title: 'Armor-Piercing Munitions',
         badge,
         badgeColor,
-        description: 'Amunisi berinti baja. Damage semua senjata api dan RPG naik secara permanen.',
+        description: 'Tungsten-carbide core ammunition. Permanently increases firearm and RPG rocket damage.',
         graphicSvg: getDamageUpgradeGraphic(),
         statBonus: `+${Math.round(gain * cfg.perStep * 100)}% DAMAGE (${levelText})`,
       };
@@ -460,10 +460,10 @@ export class SupplySelectionModal {
     return {
       id: 'opt-upgrade-maxhp',
       type: 'max_hp_upgrade',
-      title: 'Plat Armor Tambahan',
+      title: 'Reinforced Armor Plates',
       badge,
       badgeColor,
-      description: 'Plat keramik tambahan. HP maksimum naik secara permanen dan langsung terisi sebesar penambahannya.',
+      description: 'Ceramic composite plates. Permanently boosts max HP and instantly heals for the bonus amount.',
       graphicSvg: getMaxHpUpgradeGraphic(),
       statBonus: `+${gain * cfg.perStep} MAX HP (${levelText})`,
     };

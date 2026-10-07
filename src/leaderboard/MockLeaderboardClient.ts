@@ -16,26 +16,26 @@ export class MockLeaderboardClient implements LeaderboardClient {
       case 'success':
         return {
           status: 'success',
-          message: 'Score berhasil dikirim ke mock leaderboard.',
+          message: 'Score successfully submitted to mock leaderboard.',
         };
 
       case 'failure':
         return {
           status: 'failure',
-          message: 'Mock leaderboard menolak submission.',
+          message: 'Mock leaderboard rejected submission.',
         };
 
       case 'offline':
         return {
           status: 'offline',
-          message: 'Mock leaderboard sedang offline.',
+          message: 'Mock leaderboard is currently offline.',
         };
 
       case 'timeout':
         await this.delay(this.config.submissionTimeoutMs + 1000, signal);
         return {
           status: 'timeout',
-          message: 'Mock leaderboard merespons setelah batas waktu.',
+          message: 'Mock leaderboard responded after timeout.',
         };
     }
   }
@@ -56,7 +56,7 @@ export class MockLeaderboardClient implements LeaderboardClient {
   private delay(durationMs: number, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       if (signal?.aborted) {
-        reject(new DOMException('Submission dibatalkan.', 'AbortError'));
+        reject(new DOMException('Submission cancelled.', 'AbortError'));
         return;
       }
 
@@ -68,7 +68,7 @@ export class MockLeaderboardClient implements LeaderboardClient {
       const handleAbort = (): void => {
         window.clearTimeout(timer);
         signal?.removeEventListener('abort', handleAbort);
-        reject(new DOMException('Submission dibatalkan.', 'AbortError'));
+        reject(new DOMException('Submission cancelled.', 'AbortError'));
       };
 
       signal?.addEventListener('abort', handleAbort, { once: true });

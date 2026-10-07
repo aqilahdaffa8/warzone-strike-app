@@ -84,7 +84,7 @@ export class ScoreSubmissionQueue {
     if (this.isSubmitted(payload.sessionId)) {
       return {
         status: 'already_submitted',
-        message: 'Session ini sudah pernah dikirim dan tidak dikirim ulang.',
+        message: 'This session has already been submitted and will not be resent.',
       };
     }
 
@@ -92,7 +92,7 @@ export class ScoreSubmissionQueue {
     if (enqueueResult.status === 'already_submitted') {
       return {
         status: 'already_submitted',
-        message: 'Session ini sudah pernah dikirim dan tidak dikirim ulang.',
+        message: 'This session has already been submitted and will not be resent.',
       };
     }
 
@@ -113,7 +113,7 @@ export class ScoreSubmissionQueue {
         message: result.message,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Submission gagal karena error tidak dikenal.';
+      const message = error instanceof Error ? error.message : 'Submission failed due to an unknown error.';
       this.recordFailure(payload.sessionId, message);
       return {
         status: 'failed',
