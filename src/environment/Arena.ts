@@ -5,9 +5,72 @@ export interface ArenaObstacle {
   mesh: THREE.Mesh;
 }
 
+export interface OrientedCollider {
+  id: string;
+  cx: number;
+  cz: number;
+  minY: number;
+  maxY: number;
+  halfW: number;
+  halfD: number;
+  rotY: number;
+  cosRot: number;
+  sinRot: number;
+}
+
+/**
+ * Fast 2D OBB vs Circle horizontal collision test with vertical height range check.
+ * Exactly adheres to rotated obstacle geometries with zero invisible wall gaps.
+ */
+export function testOrientedColliders(
+  x: number,
+  y: number,
+  z: number,
+  radius: number,
+  height: number,
+  colliders: OrientedCollider[]
+): boolean {
+  const pMinY = y;
+  const pMaxY = y + height;
+  const rSq = radius * radius;
+
+  for (let i = 0; i < colliders.length; i++) {
+    const col = colliders[i];
+    if (pMaxY <= col.minY || pMinY >= col.maxY) {
+      continue;
+    }
+
+    let distX: number;
+    let distZ: number;
+
+    if (col.rotY === 0) {
+      const closestX = Math.max(col.cx - col.halfW, Math.min(col.cx + col.halfW, x));
+      const closestZ = Math.max(col.cz - col.halfD, Math.min(col.cz + col.halfD, z));
+      distX = x - closestX;
+      distZ = z - closestZ;
+    } else {
+      const dx = x - col.cx;
+      const dz = z - col.cz;
+      const lx = dx * col.cosRot - dz * col.sinRot;
+      const lz = dx * col.sinRot + dz * col.cosRot;
+      const closestX = Math.max(-col.halfW, Math.min(col.halfW, lx));
+      const closestZ = Math.max(-col.halfD, Math.min(col.halfD, lz));
+      distX = lx - closestX;
+      distZ = lz - closestZ;
+    }
+
+    if (distX * distX + distZ * distZ < rSq) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export class Arena {
   public readonly group: THREE.Group;
   public readonly obstacles: ArenaObstacle[] = [];
+  public readonly orientedColliders: OrientedCollider[] = [];
   private colliders: THREE.Box3[] | null = null;
   private groundMesh!: THREE.Mesh;
   private raycastObstacleList: THREE.Mesh[] | null = null;
@@ -15,6 +78,14 @@ export class Arena {
   constructor() {
     this.group = new THREE.Group();
     this.buildArena();
+  }
+
+  /**
+   * Returns pre-computed oriented bounding boxes (OBB) of arena obstacles.
+   * Eliminates invisible wall gaps on rotated crates and containers.
+   */
+  public getOrientedColliders(): OrientedCollider[] {
+    return this.orientedColliders;
   }
 
   /**
@@ -159,6 +230,19 @@ export class Arena {
     mesh.receiveShadow = true;
     this.group.add(mesh);
     this.obstacles.push({ id, mesh });
+
+    this.orientedColliders.push({
+      id,
+      cx: x,
+      cz: z,
+      minY: y - h / 2,
+      maxY: y + h / 2,
+      halfW: w / 2,
+      halfD: d / 2,
+      rotY: 0,
+      cosRot: 1,
+      sinRot: 0,
+    });
   }
 
   private createContainer(
@@ -180,6 +264,19 @@ export class Arena {
     mesh.receiveShadow = true;
     this.group.add(mesh);
     this.obstacles.push({ id, mesh });
+
+    this.orientedColliders.push({
+      id,
+      cx: x,
+      cz: z,
+      minY: y - h / 2,
+      maxY: y + h / 2,
+      halfW: w / 2,
+      halfD: d / 2,
+      rotY,
+      cosRot: Math.cos(rotY),
+      sinRot: Math.sin(rotY),
+    });
   }
 
   private createBox(
@@ -201,6 +298,19 @@ export class Arena {
     mesh.receiveShadow = true;
     this.group.add(mesh);
     this.obstacles.push({ id, mesh });
+
+    this.orientedColliders.push({
+      id,
+      cx: x,
+      cz: z,
+      minY: y - h / 2,
+      maxY: y + h / 2,
+      halfW: w / 2,
+      halfD: d / 2,
+      rotY,
+      cosRot: Math.cos(rotY),
+      sinRot: Math.sin(rotY),
+    });
   }
 
   private createWatchtower(x: number, z: number, material: THREE.Material): void {
@@ -224,6 +334,19 @@ export class Arena {
       leg.receiveShadow = true;
       towerGroup.add(leg);
       this.obstacles.push({ id: `watchtower-leg-${i + 1}`, mesh: leg });
+
+      this.orientedColliders.push({
+        id: `watchtower-leg-${i + 1}`,
+        cx: x + ox,
+        cz: z + oz,
+        minY: 0,
+        maxY: 5,
+        halfW: 0.15,
+        halfD: 0.15,
+        rotY: 0,
+        cosRot: 1,
+        sinRot: 0,
+      });
     }
 
     // Platform

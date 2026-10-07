@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { EnemyConfig } from '../config/gameConfig';
+import { OrientedCollider, testOrientedColliders } from '../environment/Arena';
 
 export interface EnemyAttackAction {
   attacked: boolean;
@@ -15,6 +16,7 @@ export type EnemyAIState = 'CHASE' | 'ATTACK' | 'DEAD';
 export class EnemyAI {
   private readonly config: EnemyConfig;
   private readonly colliders: THREE.Box3[];
+  private readonly orientedColliders: OrientedCollider[];
 
   private state: EnemyAIState = 'CHASE';
   private attackCooldownTimer: number = 0;
@@ -32,9 +34,14 @@ export class EnemyAI {
   private readonly moveDir = new THREE.Vector3();
   private readonly separationVec = new THREE.Vector3();
 
-  constructor(config: EnemyConfig, colliders: THREE.Box3[]) {
+  constructor(
+    config: EnemyConfig,
+    colliders: THREE.Box3[],
+    orientedColliders?: OrientedCollider[]
+  ) {
     this.config = config;
     this.colliders = colliders;
+    this.orientedColliders = orientedColliders ?? [];
     // Stagger initial attack cooldown slightly so multiple enemies don't all hit on the exact same frame
     this.attackCooldownTimer = Math.random() * 0.5;
   }
@@ -58,9 +65,20 @@ export class EnemyAI {
   }
 
   /**
-   * Tests whether an AABB centered at (x, y, z) intersects any arena obstacle.
+   * Tests whether enemy at (x, y, z) intersects any arena obstacle.
    */
   public checkCollision(x: number, y: number, z: number): boolean {
+    if (this.orientedColliders.length > 0) {
+      return testOrientedColliders(
+        x,
+        y + 0.05,
+        z,
+        this.config.radius,
+        this.config.height - 0.1,
+        this.orientedColliders
+      );
+    }
+
     this.tempBox.min.set(x - this.config.radius, y + 0.05, z - this.config.radius);
     this.tempBox.max.set(x + this.config.radius, y + this.config.height - 0.05, z + this.config.radius);
 

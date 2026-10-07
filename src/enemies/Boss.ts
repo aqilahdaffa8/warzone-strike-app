@@ -16,6 +16,8 @@ const BOSS_TITLES = [
  * Inherits from Enemy, featuring scaled HP, scaled primitive geometry with size cap,
  * higher melee damage, distinct obsidian/gold warlord armor, and dramatic boss health tracking.
  */
+import { OrientedCollider } from '../environment/Arena';
+
 export class Boss extends Enemy {
   public readonly bossTitle: string;
   public readonly waveNumber: number;
@@ -29,7 +31,8 @@ export class Boss extends Enemy {
     bossConfig: BossConfig,
     baseEnemyConfig: EnemyConfig,
     colliders: THREE.Box3[],
-    scene: THREE.Scene
+    scene: THREE.Scene,
+    orientedColliders?: OrientedCollider[]
   ) {
     const stats = getBossStats(waveNumber, bossConfig);
     const appearanceIndex = Math.max(0, Math.floor(waveNumber / bossConfig.waveInterval) - 1);
@@ -59,7 +62,8 @@ export class Boss extends Enemy {
       colliders,
       scene,
       stats.scale,
-      true // isBoss
+      true, // isBoss
+      orientedColliders
     );
 
     this.bossTitle = title;

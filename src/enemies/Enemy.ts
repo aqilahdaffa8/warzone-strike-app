@@ -6,6 +6,7 @@ import { EnemyAI } from './EnemyAI';
 import { PlayerHealth } from '../player/PlayerHealth';
 import { EnemyProjectileManager } from './EnemyProjectileManager';
 import { audio } from '../audio/AudioManager';
+import { OrientedCollider } from '../environment/Arena';
 
 /**
  * Enemy entity representing hostile combatants.
@@ -72,7 +73,8 @@ export class Enemy implements DamageableTarget {
     colliders: THREE.Box3[],
     scene: THREE.Scene,
     scale: number = 1.0,
-    isBoss: boolean = false
+    isBoss: boolean = false,
+    orientedColliders?: OrientedCollider[]
   ) {
     this.id = id;
     this.config = config;
@@ -88,7 +90,7 @@ export class Enemy implements DamageableTarget {
     }
 
     this.health = new EnemyHealth(config.maxHp);
-    this.ai = new EnemyAI(config, colliders);
+    this.ai = new EnemyAI(config, colliders, orientedColliders);
 
     // 1. Materials (Customized appearance for standard enemy vs heavyweight warlord Boss)
     this.bodyMaterial = new THREE.MeshStandardMaterial({

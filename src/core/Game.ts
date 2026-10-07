@@ -130,7 +130,8 @@ export class Game {
     this.playerController = new PlayerController(
       this.camera,
       colliders,
-      GAME_CONFIG.player
+      GAME_CONFIG.player,
+      this.arena.getOrientedColliders()
     );
 
     // 7. Weapon Systems (Sniper, Knife, Bazooka, AKM & M4)
@@ -390,7 +391,10 @@ export class Game {
       position,
       config,
       this.arena.getColliders(),
-      this.scene
+      this.scene,
+      1.0,
+      false,
+      this.arena.getOrientedColliders()
     );
     enemy.onDeath((killedEnemy, isHeadshot) => {
       audio.enemyDeath(killedEnemy.position, false);
@@ -410,7 +414,8 @@ export class Game {
       GAME_CONFIG.boss,
       GAME_CONFIG.enemy,
       this.arena.getColliders(),
-      this.scene
+      this.scene,
+      this.arena.getOrientedColliders()
     );
     boss.onDeath((killedBoss, isHeadshot) => {
       audio.enemyDeath(killedBoss.position, true);
@@ -437,7 +442,10 @@ export class Game {
       spawnPos,
       GAME_CONFIG.enemy,
       this.arena.getColliders(),
-      this.scene
+      this.scene,
+      1.0,
+      false,
+      this.arena.getOrientedColliders()
     );
     enemy.onDeath((killedEnemy, isHeadshot) => {
       audio.enemyDeath(killedEnemy.position, false);

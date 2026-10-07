@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { PlayerConfig } from '../config/gameConfig';
+import { OrientedCollider, testOrientedColliders } from '../environment/Arena';
 
 /**
- * First-person player controller handling movement, mouse look, AABB collision sliding,
+ * First-person player controller handling movement, mouse look, AABB/OBB collision sliding,
  * optional jump, and sensitivity adjustments.
  */
 export class PlayerController {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly colliders: THREE.Box3[];
+  private readonly orientedColliders: OrientedCollider[];
 
   // Config parameters
   private speed: number;
@@ -66,10 +68,12 @@ export class PlayerController {
   constructor(
     camera: THREE.PerspectiveCamera,
     colliders: THREE.Box3[],
-    config: PlayerConfig
+    config: PlayerConfig,
+    orientedColliders?: OrientedCollider[]
   ) {
     this.camera = camera;
     this.colliders = colliders;
+    this.orientedColliders = orientedColliders ?? [];
 
     this.speed = config.speed;
     this.sprintSpeed = config.sprintSpeed ?? (config.speed * 1.75);
@@ -229,9 +233,15 @@ export class PlayerController {
   };
 
   /**
-   * Tests whether an AABB centered at (x, y, z) intersects any arena obstacle.
+   * Tests whether player at (x, y, z) intersects any arena obstacle.
+   * Uses precise 2D OBB testing when orientedColliders are available, exactly
+   * fitting rotated containers and boxes without invisible bounding gaps.
    */
   private checkCollision(x: number, y: number, z: number): boolean {
+    if (this.orientedColliders.length > 0) {
+      return testOrientedColliders(x, y, z, this.radius, this.height, this.orientedColliders);
+    }
+
     this.tempBox.min.set(x - this.radius, y, z - this.radius);
     this.tempBox.max.set(x + this.radius, y + this.height, z + this.radius);
 
