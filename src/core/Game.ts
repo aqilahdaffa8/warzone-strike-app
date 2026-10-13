@@ -97,10 +97,10 @@ export class Game {
     this.canvas = canvas;
     this.clock = new THREE.Clock();
 
-    // 1. Scene setup
+    // 1. Scene setup (Tactical Moonlit Night)
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x11161d);
-    this.scene.fog = new THREE.Fog(0x11161d, 35, 95);
+    this.scene.background = new THREE.Color(0x0e1626);
+    this.scene.fog = new THREE.Fog(0x0e1626, 75, 175);
 
     // 2. Camera setup (first-person perspective)
     const aspect = window.innerWidth / window.innerHeight;
@@ -117,12 +117,12 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // 4. Lighting setup
-    this.setupLighting();
-
-    // 5. Arena setup
+    // 4. Arena setup (contains realistic daylight map lighting & crisp shadows)
     this.arena = new Arena();
     this.scene.add(this.arena.group);
+
+    // 5. Lighting setup
+    this.setupLighting();
 
     // 6. Player Systems
     this.playerHealth = new PlayerHealth(GAME_CONFIG.player.maxHp);
@@ -359,28 +359,8 @@ export class Game {
   }
 
   private setupLighting(): void {
-    const ambientLight = new THREE.AmbientLight(0x8fa3b8, 0.7);
-    this.scene.add(ambientLight);
-
-    const hemiLight = new THREE.HemisphereLight(0x6b8299, 0x22272e, 0.5);
-    hemiLight.position.set(0, 40, 0);
-    this.scene.add(hemiLight);
-
-    const sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
-    sunLight.position.set(30, 45, 25);
-    sunLight.castShadow = true;
-
-    sunLight.shadow.camera.left = -38;
-    sunLight.shadow.camera.right = 38;
-    sunLight.shadow.camera.top = 38;
-    sunLight.shadow.camera.bottom = -38;
-    sunLight.shadow.camera.near = 5;
-    sunLight.shadow.camera.far = 130;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.bias = -0.0005;
-
-    this.scene.add(sunLight);
+    // Environmental map lighting, natural sun shadows, sky bounce, and ambient daylight
+    // are encapsulated directly within Arena.ts (arena.group).
   }
 
 

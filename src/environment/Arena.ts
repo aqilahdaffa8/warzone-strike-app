@@ -71,6 +71,8 @@ export class Arena {
   public readonly group: THREE.Group;
   public readonly obstacles: ArenaObstacle[] = [];
   public readonly orientedColliders: OrientedCollider[] = [];
+  public readonly mapLights: THREE.Light[] = [];
+  private readonly baseIntensities: number[] = [];
   private colliders: THREE.Box3[] | null = null;
   private groundMesh!: THREE.Mesh;
   private raycastObstacleList: THREE.Mesh[] | null = null;
@@ -78,6 +80,26 @@ export class Arena {
   constructor() {
     this.group = new THREE.Group();
     this.buildArena();
+  }
+
+  /**
+   * Returns all active map light objects created by the arena.
+   */
+  public getMapLights(): THREE.Light[] {
+    return this.mapLights;
+  }
+
+  /**
+   * Adjusts the overall intensity of all map lights.
+   * @param factor Multiplier for base light intensity (e.g. 1.0 = normal, 1.5 = brighter, 0.5 = dimmer).
+   */
+  public setMapLightingIntensity(factor: number): void {
+    const clamped = Math.max(0, factor);
+    for (let i = 0; i < this.mapLights.length; i++) {
+      const light = this.mapLights[i];
+      const base = this.baseIntensities[i] ?? 1.0;
+      light.intensity = base * clamped;
+    }
   }
 
   /**
@@ -116,53 +138,53 @@ export class Arena {
   }
 
   private buildArena(): void {
-    // Shared materials
+    // Shared materials with tactical moonlit night tones (crisp contrast & clean visibility)
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x22272e,
-      roughness: 0.85,
-      metalness: 0.1,
+      color: 0x36414e,
+      roughness: 0.72,
+      metalness: 0.18,
     });
 
     const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3d444d,
-      roughness: 0.7,
-      metalness: 0.25,
+      color: 0x485566,
+      roughness: 0.65,
+      metalness: 0.2,
     });
 
     const containerMatGreen = new THREE.MeshStandardMaterial({
-      color: 0x2e4c38,
-      roughness: 0.6,
-      metalness: 0.3,
+      color: 0x243e2e,
+      roughness: 0.55,
+      metalness: 0.35,
     });
 
     const containerMatBlue = new THREE.MeshStandardMaterial({
-      color: 0x2c435c,
-      roughness: 0.6,
-      metalness: 0.3,
+      color: 0x283f5c,
+      roughness: 0.55,
+      metalness: 0.35,
     });
 
     const containerMatRust = new THREE.MeshStandardMaterial({
-      color: 0x6e3b2b,
-      roughness: 0.8,
+      color: 0x6e382b,
+      roughness: 0.75,
       metalness: 0.2,
     });
 
     const crateMaterial = new THREE.MeshStandardMaterial({
-      color: 0x61523f,
-      roughness: 0.75,
+      color: 0x5a4b39,
+      roughness: 0.7,
       metalness: 0.1,
     });
 
     const barrierMaterial = new THREE.MeshStandardMaterial({
-      color: 0x4a525d,
+      color: 0x475363,
       roughness: 0.65,
       metalness: 0.2,
     });
 
     const metalTowerMaterial = new THREE.MeshStandardMaterial({
-      color: 0x272e36,
-      roughness: 0.5,
-      metalness: 0.6,
+      color: 0x2b3440,
+      roughness: 0.45,
+      metalness: 0.65,
     });
 
     // 1. Ground Plane (60 x 60 m, with 0.2m thickness to prevent z-fighting with shadows)
@@ -174,7 +196,7 @@ export class Arena {
     this.group.add(groundMesh);
 
     // Grid markings / lane stripes on ground
-    const gridHelper = new THREE.GridHelper(60, 30, 0x444c56, 0x2d333b);
+    const gridHelper = new THREE.GridHelper(60, 30, 0x4a5d75, 0x243242);
     gridHelper.position.y = 0.01;
     this.group.add(gridHelper);
 
@@ -211,6 +233,9 @@ export class Arena {
 
     // 6. Observation / Watchtower Platform Placeholder (at corner -22, -22)
     this.createWatchtower(-22, -22, metalTowerMaterial);
+
+    // 7. Realistic Environmental Map Lighting & Shadows
+    this.setupMapLighting();
   }
 
   private createWall(
@@ -378,5 +403,50 @@ export class Arena {
     towerGroup.add(r4);
 
     this.group.add(towerGroup);
+  }
+
+  private registerMapLight(light: THREE.Light, baseIntensity: number): void {
+    light.intensity = baseIntensity;
+    this.mapLights.push(light);
+    this.baseIntensities.push(baseIntensity);
+    this.group.add(light);
+  }
+
+  /**
+   * Sets up realistic tactical moonlit night map lighting.
+   * Produces a moody night atmosphere with cool silver-blue moonlight, sharp shadows,
+   * and high-visibility ambient fill so players can spot enemies clearly and navigate freely.
+   */
+  private setupMapLighting(): void {
+    // 1. Primary Directional Moonlight with Crisp Soft Shadows
+    // Silver-blue lunar ray casting realistic diagonal night shadows
+    const moonLight = new THREE.DirectionalLight(0xd0e2fc, 1.5);
+    moonLight.position.set(32, 50, 24);
+    moonLight.castShadow = true;
+
+    // Shadow camera cleanly encompasses the entire 60x60m arena with crisp resolution
+    moonLight.shadow.camera.left = -38;
+    moonLight.shadow.camera.right = 38;
+    moonLight.shadow.camera.top = 38;
+    moonLight.shadow.camera.bottom = -38;
+    moonLight.shadow.camera.near = 5;
+    moonLight.shadow.camera.far = 135;
+    moonLight.shadow.mapSize.width = 2048;
+    moonLight.shadow.mapSize.height = 2048;
+    moonLight.shadow.bias = -0.0004;
+
+    this.registerMapLight(moonLight, 1.5);
+
+    // 2. Night Sky Atmosphere & Ground Bounce (HemisphereLight)
+    // Deep midnight blue from the sky + ground slate reflection
+    // Softens shadows so covered areas remain clearly readable and not pitch-black
+    const hemiLight = new THREE.HemisphereLight(0x486b99, 0x263342, 0.85);
+    hemiLight.position.set(0, 50, 0);
+    this.registerMapLight(hemiLight, 0.85);
+
+    // 3. Tactical Visibility Ambient Light
+    // High-clarity ambient fill to keep enemy silhouettes crisp and recognizable from distance
+    const ambientLight = new THREE.AmbientLight(0x6a86a8, 0.65);
+    this.registerMapLight(ambientLight, 0.65);
   }
 }
