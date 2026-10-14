@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BazookaConfig } from '../config/gameConfig';
-import { Weapon, WeaponType, DamageableTarget } from './Weapon';
+import { Weapon, WeaponType, DamageableTarget, AmmoState } from './Weapon';
+import { audio } from '../audio/AudioManager';
 
 export interface RocketProjectile {
   mesh: THREE.Group;
@@ -62,7 +63,7 @@ export class Bazooka implements Weapon {
   private readonly activeExplosions: RocketExplosionFX[] = [];
   private readonly activeSmoke: SmokePuff[] = [];
 
-  public onExplosion?: (position: THREE.Vector3, radius: number) => void;
+  public onExplosion?: (position: THREE.Vector3, radius: number, maxDamage: number) => void;
 
   constructor(config: BazookaConfig, camera: THREE.PerspectiveCamera, scene: THREE.Scene) {
     this.config = config;
@@ -200,10 +201,12 @@ export class Bazooka implements Weapon {
     return this.isActive;
   }
 
-  public getAmmo(): { current: number; reserve: number } {
+  public getAmmo(): AmmoState & { current: number } {
     return {
-      current: this.magazineAmmo,
+      inMag: this.magazineAmmo,
       reserve: this.reserveAmmo,
+      maxMag: this.config.magazineCapacity,
+      current: this.magazineAmmo,
     };
   }
 
@@ -240,6 +243,7 @@ export class Bazooka implements Weapon {
     this.cooldownTimer = 0;
     if (this.loadedRocketMesh) {
       this.loadedRocketMesh.visible = true;
+      this.loadedRocketMesh.position.set(0, 0, 0);
     }
   }
 
@@ -256,6 +260,10 @@ export class Bazooka implements Weapon {
     if (this.isReloading) {
       this.isReloading = false;
       this.reloadTimer = 0;
+      if (this.loadedRocketMesh) {
+        this.loadedRocketMesh.visible = this.magazineAmmo > 0;
+        this.loadedRocketMesh.position.set(0, 0, 0);
+      }
     }
   }
 
@@ -267,6 +275,10 @@ export class Bazooka implements Weapon {
 
     this.isReloading = true;
     this.reloadTimer = this.getReloadDuration();
+    audio.reloadStart('bazooka');
+    if (this.loadedRocketMesh) {
+      this.loadedRocketMesh.visible = false;
+    }
     return true;
   }
 
@@ -384,8 +396,10 @@ export class Bazooka implements Weapon {
         this.reloadTimer = 0;
         this.magazineAmmo = 1;
         this.reserveAmmo = Math.max(0, this.reserveAmmo - 1);
+        audio.reloadEnd('bazooka');
         if (this.loadedRocketMesh) {
           this.loadedRocketMesh.visible = true;
+          this.loadedRocketMesh.position.set(0, 0, 0);
         }
       }
     }
@@ -396,14 +410,31 @@ export class Bazooka implements Weapon {
     this.recoilRot.y = THREE.MathUtils.lerp(this.recoilRot.y, 0, dt * 10.0);
     this.recoilRot.z = THREE.MathUtils.lerp(this.recoilRot.z, 0, dt * 10.0);
 
-    // Apply viewmodel transforms
+    // Apply viewmodel transforms with PB style reload animation
     if (this.isActive) {
       let reloadDipY = 0;
       let reloadPitch = 0;
+      let reloadRoll = 0;
       if (this.isReloading) {
-        const progress = 1.0 - this.reloadTimer / this.getReloadDuration();
-        reloadDipY = -Math.sin(progress * Math.PI) * 0.18;
-        reloadPitch = Math.sin(progress * Math.PI) * 0.45;
+        const progress = Math.max(0, Math.min(1.0, 1.0 - this.reloadTimer / this.getReloadDuration()));
+        reloadDipY = -Math.sin(progress * Math.PI) * 0.22;
+        reloadPitch = Math.sin(progress * Math.PI) * 0.38;
+        reloadRoll = Math.sin(progress * Math.PI) * 0.16;
+
+        // Animated rocket insertion into the front muzzle
+        if (this.loadedRocketMesh) {
+          if (progress < 0.25) {
+            this.loadedRocketMesh.visible = false;
+          } else if (progress < 0.80) {
+            this.loadedRocketMesh.visible = true;
+            const insertT = (progress - 0.25) / 0.55;
+            const rocketZ = THREE.MathUtils.lerp(-0.45, 0, insertT);
+            this.loadedRocketMesh.position.set(0, 0, rocketZ);
+          } else {
+            this.loadedRocketMesh.visible = true;
+            this.loadedRocketMesh.position.set(0, 0, 0);
+          }
+        }
       }
 
       this.bazookaGroup.position.set(
@@ -413,7 +444,7 @@ export class Bazooka implements Weapon {
       );
       this.bazookaGroup.rotation.set(
         this.restRot.x + this.recoilRot.x + reloadPitch,
-        this.restRot.y + this.recoilRot.y,
+        this.restRot.y + this.recoilRot.y + reloadRoll,
         this.restRot.z + this.recoilRot.z
       );
     }
@@ -602,7 +633,7 @@ export class Bazooka implements Weapon {
     const maxDamage = this.config.damage * this.damageMultiplier;
 
     if (this.onExplosion) {
-      this.onExplosion(pos, blastRadius);
+      this.onExplosion(pos, blastRadius, maxDamage);
     }
 
     // Visual expanding fireball sphere

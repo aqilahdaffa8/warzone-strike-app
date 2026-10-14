@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { AssaultRifleConfig } from '../config/gameConfig';
 import { PlayerController } from '../player/PlayerController';
-import { Weapon, WeaponType, DamageableTarget, FireResult } from './Weapon';
+import { Weapon, DamageableTarget, FireResult, AmmoState } from './Weapon';
+import { audio } from '../audio/AudioManager';
 
 export class AssaultRifle implements Weapon {
-  public readonly type: WeaponType;
+  public readonly type: 'akm' | 'm4';
   public readonly name: string;
 
   private readonly config: AssaultRifleConfig;
@@ -25,6 +26,9 @@ export class AssaultRifle implements Weapon {
 
   // Viewmodel Group & FX
   public readonly gunGroup: THREE.Group;
+  private magazineMesh: THREE.Mesh | null = null;
+  private readonly magRestPos = new THREE.Vector3();
+  private readonly magRestRot = new THREE.Euler();
   private muzzleFlashMesh: THREE.Mesh | null = null;
   private muzzleFlashLight: THREE.PointLight | null = null;
   private muzzleFlashTimer: number = 0;
@@ -69,6 +73,9 @@ export class AssaultRifle implements Weapon {
     this.gunGroup = new THREE.Group();
     this.buildGunModel();
 
+    this.gunGroup.position.set(0.22, -0.18, -0.38);
+    this.gunGroup.rotation.set(0.02, -0.04, 0);
+
     this.camera.add(this.gunGroup);
     if (!this.camera.parent) {
       this.scene.add(this.camera);
@@ -102,7 +109,7 @@ export class AssaultRifle implements Weapon {
     return this.isActive;
   }
 
-  public getAmmo(): { inMag: number; reserve: number; maxMag: number } {
+  public getAmmo(): AmmoState {
     return {
       inMag: this.ammoInMag,
       reserve: this.reserveAmmo,
@@ -165,6 +172,13 @@ export class AssaultRifle implements Weapon {
     if (this.isReloading) {
       this.isReloading = false;
       this.reloadTimer = 0;
+      if (this.magazineMesh) {
+        this.magazineMesh.visible = true;
+        this.magazineMesh.position.copy(this.magRestPos);
+        this.magazineMesh.rotation.copy(this.magRestRot);
+      }
+      this.gunGroup.position.set(0.22, -0.18, -0.38);
+      this.gunGroup.rotation.set(0.02, -0.04, 0);
     }
   }
 
@@ -176,6 +190,7 @@ export class AssaultRifle implements Weapon {
 
     this.isReloading = true;
     this.reloadTimer = this.getReloadDuration();
+    audio.reloadStart(this.type);
     return true;
   }
 
@@ -338,13 +353,71 @@ export class AssaultRifle implements Weapon {
 
     if (this.recoilOffsetZ > 0) {
       this.recoilOffsetZ = Math.max(0, this.recoilOffsetZ - dt * 0.4);
-      this.gunGroup.position.z = -0.38 + this.recoilOffsetZ;
-    } else {
-      this.gunGroup.position.z = -0.38;
     }
+
+    let reloadDipY = 0;
+    let reloadPitch = 0;
+    let reloadRoll = 0;
+    let magKickY = 0;
+    let boltPullZ = 0;
 
     if (this.isReloading) {
       this.reloadTimer -= dt;
+      const duration = this.getReloadDuration();
+      const progress = Math.max(0, Math.min(1.0, 1.0 - this.reloadTimer / duration));
+
+      // 1. Point Blank Style Weapon Tilt (Miring ke kiri dan turun sedikit)
+      reloadRoll = Math.sin(progress * Math.PI) * 0.36;
+      reloadPitch = Math.sin(progress * Math.PI) * 0.14;
+      reloadDipY = -Math.sin(progress * Math.PI) * 0.07;
+
+      // 2. Animated Magazine (Lepas ke bawah -> Pasang mag baru dari bawah)
+      if (this.magazineMesh) {
+        if (progress < 0.20) {
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.copy(this.magRestPos);
+          this.magazineMesh.rotation.copy(this.magRestRot);
+        } else if (progress < 0.45) {
+          // Eject magazine sliding downward
+          const ejectT = (progress - 0.20) / 0.25;
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.set(
+            this.magRestPos.x,
+            this.magRestPos.y - ejectT * 0.22,
+            this.magRestPos.z
+          );
+          this.magazineMesh.rotation.z = this.magRestRot.z - ejectT * 0.15;
+        } else if (progress < 0.50) {
+          // Hand reaching for fresh magazine from tactical pouch
+          this.magazineMesh.visible = false;
+        } else if (progress < 0.72) {
+          // Inserting fresh magazine smoothly into receiver well
+          const insertT = (progress - 0.50) / 0.22;
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.set(
+            this.magRestPos.x,
+            this.magRestPos.y - (1.0 - insertT) * 0.24,
+            this.magRestPos.z
+          );
+          this.magazineMesh.rotation.z = this.magRestRot.z - (1.0 - insertT) * 0.08;
+        } else {
+          // Magazine firmly clicked into receiver
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.copy(this.magRestPos);
+          this.magazineMesh.rotation.copy(this.magRestRot);
+        }
+      }
+
+      // 3. Magazine Snap & Bolt Chambering Pull (PB Cocking Shake)
+      if (progress >= 0.70 && progress < 0.80) {
+        const snapT = (progress - 0.70) / 0.10;
+        magKickY = Math.sin(snapT * Math.PI) * 0.025;
+      }
+      if (progress >= 0.78 && progress < 0.92) {
+        const cockT = (progress - 0.78) / 0.14;
+        boltPullZ = Math.sin(cockT * Math.PI) * 0.045;
+      }
+
       if (this.reloadTimer <= 0) {
         this.isReloading = false;
         this.reloadTimer = 0;
@@ -352,7 +425,26 @@ export class AssaultRifle implements Weapon {
         const toLoad = Math.min(needed, this.reserveAmmo);
         this.ammoInMag += toLoad;
         this.reserveAmmo -= toLoad;
+        audio.reloadEnd(this.type);
+        if (this.magazineMesh) {
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.copy(this.magRestPos);
+          this.magazineMesh.rotation.copy(this.magRestRot);
+        }
       }
+    }
+
+    if (this.isActive) {
+      this.gunGroup.position.set(
+        0.22,
+        -0.18 + reloadDipY + magKickY,
+        -0.38 + this.recoilOffsetZ + boltPullZ
+      );
+      this.gunGroup.rotation.set(
+        0.02 + reloadPitch,
+        -0.04,
+        reloadRoll
+      );
     }
 
     if (this.muzzleFlashTimer > 0) {
@@ -437,6 +529,9 @@ export class AssaultRifle implements Weapon {
       mag.position.set(0, -0.1, -0.04);
       mag.rotation.x = -0.25;
       this.gunGroup.add(mag);
+      this.magazineMesh = mag;
+      this.magRestPos.copy(mag.position);
+      this.magRestRot.copy(mag.rotation);
 
       // Grip
       const gripGeo = new THREE.BoxGeometry(0.032, 0.09, 0.04);
@@ -487,6 +582,9 @@ export class AssaultRifle implements Weapon {
       mag.position.set(0, -0.095, -0.03);
       mag.rotation.x = -0.15;
       this.gunGroup.add(mag);
+      this.magazineMesh = mag;
+      this.magRestPos.copy(mag.position);
+      this.magRestRot.copy(mag.rotation);
 
       // Pistol Grip
       const gripGeo = new THREE.BoxGeometry(0.032, 0.095, 0.038);

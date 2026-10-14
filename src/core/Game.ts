@@ -160,20 +160,45 @@ export class Game {
       this.hud.updateScore(score, delta, reason);
     };
 
-    // 10. Grenades & Explosions with Screen Shake Feedback
+    // Check self-damage if player is caught in explosion radius (Bazooka rocket or Frag grenade)
+    const checkExplosionPlayerDamage = (pos: THREE.Vector3, blastRadius: number, maxDamage: number) => {
+      if (this.playerHealth.isDead()) return;
+      const playerPos = this.playerController.position;
+      const clampedY = THREE.MathUtils.clamp(pos.y, playerPos.y, playerPos.y + 1.8);
+      const closestPoint = new THREE.Vector3(playerPos.x, clampedY, playerPos.z);
+      const dist = pos.distanceTo(closestPoint);
+
+      if (dist <= blastRadius) {
+        // Direct or close proximity blast (<= 1.8m) delivers full lethal damage (instakill)
+        let damage = maxDamage;
+        if (dist > 1.8) {
+          const falloff = 1.0 - (dist - 1.8) / (blastRadius - 1.8);
+          damage = Math.round(maxDamage * Math.max(0.18, falloff));
+        }
+        this.playerHealth.takeDamage(damage, pos);
+      }
+    };
+
+    // 10. Grenades & Explosions with Screen Shake Feedback & Self-Damage
     this.grenadeManager = new GrenadeManager(GAME_CONFIG.grenade, this.scene, colliders);
-    this.grenadeManager.onExplosion = (pos) => {
+    this.grenadeManager.onExplosion = (pos, radius, maxDamage) => {
+      const blastRadius = radius || GAME_CONFIG.grenade.radius;
+      const damageVal = maxDamage || GAME_CONFIG.grenade.damage;
       audio.explosion(pos, 'grenade');
       this.playerController.triggerExplosionShake(pos, 32.0);
-      const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= 6.0);
+      checkExplosionPlayerDamage(pos, blastRadius, damageVal);
+      const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= blastRadius);
       if (hitAny) {
         this.showHit(false);
       }
     };
-    this.bazooka.onExplosion = (pos) => {
+    this.bazooka.onExplosion = (pos, radius, maxDamage) => {
+      const blastRadius = radius || GAME_CONFIG.bazooka.blastRadius;
+      const damageVal = maxDamage || GAME_CONFIG.bazooka.damage;
       audio.explosion(pos, 'rocket');
       this.playerController.triggerExplosionShake(pos, 35.0);
-      const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= 6.0);
+      checkExplosionPlayerDamage(pos, blastRadius, damageVal);
+      const hitAny = this.enemies.some((e) => !e.getIsDead() && e.position.distanceTo(pos) <= blastRadius);
       if (hitAny) {
         this.showHit(false);
       }

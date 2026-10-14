@@ -28,7 +28,7 @@ export class GrenadeManager {
   private throwCooldown: number = 0;
   private grenadeCount: number = 1; // Start with 1 tactical frag grenade
 
-  public onExplosion?: (position: THREE.Vector3, radius: number) => void;
+  public onExplosion?: (position: THREE.Vector3, radius: number, maxDamage: number) => void;
 
   constructor(config: GrenadeConfig, scene: THREE.Scene, colliders: THREE.Box3[]) {
     this.config = config;
@@ -214,7 +214,7 @@ export class GrenadeManager {
     const maxDamage = this.config.damage;
 
     if (this.onExplosion) {
-      this.onExplosion(pos, blastRadius);
+      this.onExplosion(pos, blastRadius, maxDamage);
     }
 
     // 1. Visual Expanding Shockwave Mesh

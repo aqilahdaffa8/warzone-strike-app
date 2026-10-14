@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { SniperConfig } from '../config/gameConfig';
 import { PlayerController } from '../player/PlayerController';
-
-import { Weapon, WeaponType, DamageableTarget, FireResult } from './Weapon';
+import { Weapon, WeaponType, DamageableTarget, FireResult, AmmoState } from './Weapon';
+import { audio } from '../audio/AudioManager';
 export type { FireResult };
 
 export interface WeaponStats {
@@ -47,6 +47,11 @@ export class Sniper implements Weapon {
 
   // First-person Weapon Visuals
   public readonly gunGroup: THREE.Group;
+  private magazineMesh: THREE.Mesh | null = null;
+  private readonly magRestPos = new THREE.Vector3();
+  private readonly magRestRot = new THREE.Euler();
+  private boltMesh: THREE.Mesh | null = null;
+  private readonly boltRestPos = new THREE.Vector3();
   private muzzleFlashMesh: THREE.Mesh | null = null;
   private muzzleFlashLight: THREE.PointLight | null = null;
   private muzzleFlashTimer: number = 0;
@@ -176,6 +181,18 @@ export class Sniper implements Weapon {
     magMesh.position.set(0, -0.1, -0.05);
     magMesh.rotation.x = 0.15;
     this.gunGroup.add(magMesh);
+    this.magazineMesh = magMesh;
+    this.magRestPos.copy(magMesh.position);
+    this.magRestRot.copy(magMesh.rotation);
+
+    // 5b. Tactical Bolt Handle (Point Blank bolt action)
+    const boltGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.07, 8);
+    boltGeo.rotateZ(Math.PI / 2);
+    const boltMesh = new THREE.Mesh(boltGeo, metalMat);
+    boltMesh.position.set(0.04, 0.04, 0.05);
+    this.gunGroup.add(boltMesh);
+    this.boltMesh = boltMesh;
+    this.boltRestPos.copy(boltMesh.position);
 
     // 6. Muzzle Flash Placeholder (Brief flash quad + point light)
     const flashGeo = new THREE.SphereGeometry(0.06, 8, 8);
@@ -322,6 +339,7 @@ export class Sniper implements Weapon {
 
     this.isReloading = true;
     this.reloadTimer = this.getReloadDuration();
+    audio.reloadStart('sniper');
 
     // Reloading automatically unscopes
     if (this.isScoped) {
@@ -353,7 +371,7 @@ export class Sniper implements Weapon {
     return Math.max(0, Math.min(1, 1 - this.reloadTimer / this.getReloadDuration()));
   }
 
-  public getAmmo(): { inMag: number; reserve: number; maxMag: number } {
+  public getAmmo(): AmmoState {
     return {
       inMag: this.ammoInMag,
       reserve: this.reserveAmmo,
@@ -375,6 +393,16 @@ export class Sniper implements Weapon {
     if (this.isReloading) {
       this.isReloading = false;
       this.reloadTimer = 0;
+      if (this.magazineMesh) {
+        this.magazineMesh.visible = true;
+        this.magazineMesh.position.copy(this.magRestPos);
+        this.magazineMesh.rotation.copy(this.magRestRot);
+      }
+      if (this.boltMesh) {
+        this.boltMesh.position.copy(this.boltRestPos);
+      }
+      this.gunGroup.position.set(0.24, -0.22, -0.52);
+      this.gunGroup.rotation.set(0.04, -0.05, 0);
     }
   }
 
@@ -489,15 +517,98 @@ export class Sniper implements Weapon {
       this.fireTimer = Math.max(0, this.fireTimer - dt);
     }
 
-    // 2. Reload Timer
+    // 2. Reload Timer & Point Blank Animation
+    let reloadDipY = 0;
+    let reloadPitch = 0;
+    let reloadRoll = 0;
+    let magKickY = 0;
+    let boltKickZ = 0;
+
     if (this.isReloading) {
       this.reloadTimer -= dt;
+      const duration = this.getReloadDuration();
+      const progress = Math.max(0, Math.min(1.0, 1.0 - this.reloadTimer / duration));
+
+      // 1. Point Blank Style Weapon Tilt (Miring ke kiri dan turun sedikit)
+      reloadRoll = Math.sin(progress * Math.PI) * 0.38;
+      reloadPitch = Math.sin(progress * Math.PI) * 0.16;
+      reloadDipY = -Math.sin(progress * Math.PI) * 0.08;
+
+      // 2. Bolt Action Opening (Tarik bolt mundur di awal reload)
+      if (this.boltMesh) {
+        if (progress < 0.25) {
+          const t = progress / 0.25;
+          this.boltMesh.position.z = this.boltRestPos.z + t * 0.06;
+        } else if (progress < 0.75) {
+          this.boltMesh.position.z = this.boltRestPos.z + 0.06;
+        } else if (progress < 0.90) {
+          // Push bolt handle forward and lock down
+          const t = (progress - 0.75) / 0.15;
+          this.boltMesh.position.z = this.boltRestPos.z + (1.0 - t) * 0.06;
+        } else {
+          this.boltMesh.position.copy(this.boltRestPos);
+        }
+      }
+
+      // 3. Animated Magazine (Eject down -> insert fresh mag from below)
+      if (this.magazineMesh) {
+        if (progress < 0.20) {
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.copy(this.magRestPos);
+          this.magazineMesh.rotation.copy(this.magRestRot);
+        } else if (progress < 0.45) {
+          const ejectT = (progress - 0.20) / 0.25;
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.set(
+            this.magRestPos.x,
+            this.magRestPos.y - ejectT * 0.24,
+            this.magRestPos.z
+          );
+          this.magazineMesh.rotation.z = this.magRestRot.z - ejectT * 0.15;
+        } else if (progress < 0.50) {
+          this.magazineMesh.visible = false;
+        } else if (progress < 0.72) {
+          const insertT = (progress - 0.50) / 0.22;
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.set(
+            this.magRestPos.x,
+            this.magRestPos.y - (1.0 - insertT) * 0.24,
+            this.magRestPos.z
+          );
+          this.magazineMesh.rotation.z = this.magRestRot.z - (1.0 - insertT) * 0.08;
+        } else {
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.copy(this.magRestPos);
+          this.magazineMesh.rotation.copy(this.magRestRot);
+        }
+      }
+
+      // 4. Point Blank Cocking & Mag Click Hentakan
+      if (progress >= 0.70 && progress < 0.80) {
+        const snapT = (progress - 0.70) / 0.10;
+        magKickY = Math.sin(snapT * Math.PI) * 0.025;
+      }
+      if (progress >= 0.80 && progress < 0.94) {
+        const cockT = (progress - 0.80) / 0.14;
+        boltKickZ = Math.sin(cockT * Math.PI) * 0.04;
+      }
+
       if (this.reloadTimer <= 0) {
         this.isReloading = false;
+        this.reloadTimer = 0;
         const needed = this.currentMagCapacity - this.ammoInMag;
         const toLoad = Math.min(needed, this.reserveAmmo);
         this.ammoInMag += toLoad;
         this.reserveAmmo -= toLoad;
+        audio.reloadEnd('sniper');
+        if (this.magazineMesh) {
+          this.magazineMesh.visible = true;
+          this.magazineMesh.position.copy(this.magRestPos);
+          this.magazineMesh.rotation.copy(this.magRestRot);
+        }
+        if (this.boltMesh) {
+          this.boltMesh.position.copy(this.boltRestPos);
+        }
       }
     }
 
@@ -530,9 +641,17 @@ export class Sniper implements Weapon {
         this.recoilOffset = Math.max(0, this.recoilOffset - dt * 0.45);
         this.recoilPitch = Math.max(0, this.recoilPitch - dt * 0.35);
 
-        // Idle rest position + recoil kick
-        this.gunGroup.position.set(0.24, -0.22, -0.52 + this.recoilOffset);
-        this.gunGroup.rotation.set(0.04 + this.recoilPitch, -0.05, 0);
+        // Idle rest position + recoil kick + PB Reload Animation Transforms
+        this.gunGroup.position.set(
+          0.24,
+          -0.22 + this.recoilPitch * 0.5 + reloadDipY + magKickY,
+          -0.52 + this.recoilOffset + boltKickZ
+        );
+        this.gunGroup.rotation.set(
+          0.04 + this.recoilPitch + reloadPitch,
+          -0.05,
+          reloadRoll
+        );
       }
     }
 
