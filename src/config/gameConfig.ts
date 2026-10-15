@@ -242,30 +242,30 @@ export const GAME_CONFIG: GameConfig = {
   wave: {
     totalWaves: 999999, // Endless waves without ceiling
     initialEnemies: 3, // Wave 1: 3 enemies (balanced early progression)
-    additionalEnemiesPerWave: 2, // +2 enemies per wave
-    hpScaling: 0.12, // +12% enemy HP per wave (challenging progression)
-    damageScaling: 0.08, // +8% enemy damage per wave
+    additionalEnemiesPerWave: 1, // +1 enemy per wave for smooth, fair progression
+    hpScaling: 0.06, // +6% enemy HP per wave (rewarding headshots and accurate aim)
+    damageScaling: 0.05, // +5% enemy damage per wave
     intermissionDuration: 10.0, // 10s intermission between waves (airdrop collection window)
     minSpawnDistance: 20.0, // 20m minimum spawn distance from player
-    maxActiveEnemies: 15, // Maximum 15 active enemies in arena concurrently
-    spawnInterval: 0.8, // 0.8s interval between spawning queued enemies
+    maxActiveEnemies: 8, // Maximum 8 active enemies concurrently to prevent claustrophobic swarming
+    spawnInterval: 1.0, // 1.0s interval between spawning queued enemies
   },
   boss: {
-    waveInterval: 5, // Baseline interval (5, 6, 8, 10, 12... have specialized multi-boss rules)
-    baseHp: 1000, // Wave 5 boss HP = 1000
-    hpScaling: 0.50, // +50% HP per subsequent boss appearance (1000, 1500, 2000...)
-    baseDamage: 25, // 25 melee damage per strike
-    damageScaling: 0.20, // +20% damage per subsequent appearance
+    waveInterval: 5, // Strict 5-wave interval (Wave 5, 10, 15, 20...)
+    baseHp: 850, // Wave 5 boss HP = 850 (accessible introduction)
+    hpScaling: 0.35, // +35% HP per subsequent boss appearance (850, 1148, 1445...)
+    baseDamage: 22, // 22 melee damage per strike
+    damageScaling: 0.15, // +15% damage per subsequent appearance
     baseScale: 2.0, // 2.0x standard enemy size
-    scalePerAppearance: 0.25, // +0.25x scale per boss appearance
-    maxScale: 3.5, // Capped at 3.5x maximum scale
-    speed: 2.8, // Slightly heavier / deliberate movement (2.8 m/s)
-    attackRange: 2.8, // Extended melee reach for giant boss
-    attackCooldown: 1.2, // 1.2s attack cooldown
-    rangedCooldown: 1.5, // Rapid burst fire interval for Boss Plasma Cannons
-    rangedDamage: 22, // Heavy plasma damage per hit
-    rangedSpeed: 26.0, // High-speed plasma bolts
-    rangedMaxDistance: 32.0, // 32m plasma reach
+    scalePerAppearance: 0.20, // +0.20x scale per boss appearance
+    maxScale: 3.2, // Capped at 3.2x maximum scale
+    speed: 2.6, // Heavy, deliberate movement (2.6 m/s)
+    attackRange: 2.6, // Extended melee reach for giant boss
+    attackCooldown: 1.3, // 1.3s attack cooldown
+    rangedCooldown: 2.0, // 2.0s burst interval for Boss Plasma Cannons (fair reaction window)
+    rangedDamage: 18, // Balanced plasma damage per hit
+    rangedSpeed: 24.0, // Plasma bolt velocity
+    rangedMaxDistance: 30.0, // 30m plasma reach
   },
   grenade: {
     damage: 250, // Massive 250 AoE explosion damage to wipe groups
