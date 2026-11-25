@@ -7,6 +7,37 @@ export interface LeaderboardSubmissionResult {
   message: string;
 }
 
+export interface LeaderboardPlayerEntry {
+  result_id?: string;
+  session_id?: string;
+  rank: number;
+  player: {
+    id: number | string;
+    name: string;
+  };
+  score: number;
+  best_score?: number;
+  data?: {
+    kills?: number;
+    headshots?: number;
+    bosses_defeated?: number;
+    wave_reached?: number;
+  } | unknown[];
+  submitted_at?: string;
+}
+
+export interface LeaderboardData {
+  total_players: number;
+  leaderboard: LeaderboardPlayerEntry[];
+  my_rank?: {
+    rank: number;
+    score: number;
+    best_score: number;
+    submitted_at?: string;
+  } | null;
+}
+
 export interface LeaderboardClient {
   submitScore(payload: ScorePayload, signal?: AbortSignal): Promise<LeaderboardSubmissionResult>;
+  fetchLeaderboard?(limit?: number, offset?: number): Promise<LeaderboardData>;
 }

@@ -1,0 +1,1204 @@
+================================================================================
+P2R DEVELOPER HANDOFF — WARZONE STRIKE
+================================================================================
+Generated: 2026-11-18
+Deadline: Pameran RPL, 25 November 2026
+
+SECURITY: This message contains temporary passwords and runtime credentials.
+Deliver only to the Warzone Strike development team via a secure private
+channel (WhatsApp DM, Signal, or in-person). Do not forward, email, or post to
+any public channel.
+
+================================================================================
+1. PANEL ACCESS
+================================================================================
+
+Game: Warzone Strike
+Slug: warzone-strike
+Developer Login Email: dev-warzone-strike@pixel2reality.fun
+Temporary Panel Password: OgCoFkiw18fcgYsl
+Panel URL: https://pameran.devsaka.id/panel
+
+Instructions:
+1. Open https://pameran.devsaka.id/panel
+2. Click Login and enter your developer email and temporary password above.
+3. You will be forced to set a permanent password immediately (non-dismissible
+   modal). Choose a strong, unique password.
+4. After login, you are redirected to your Karya workspace at
+   /panel/developer/karya showing Warzone Strike.
+
+================================================================================
+2. GAME RUNTIME CREDENTIALS
+================================================================================
+
+Client ID:    p2r_game_gvsbriittcecfjs4
+Client Secret: sec_em7gAPKdiCahFP4bjOh7EvPEBNlub3KLZXm70aCW
+
+BROWSER SECURITY REQUIREMENTS — WARZONE STRIKE (read carefully, these are
+mandatory):
+
+Warzone Strike runs in the browser (TypeScript, Three.js, Vite). You MUST
+NEVER embed client_secret in a browser bundle, JavaScript, local storage, or
+network response.
+
+Use the Panel BFF (Backend-for-Frontend) to obtain short-lived game access
+tokens:
+
+Browser Flow:
+1. Player logs in to your game → obtains Sanctum player token
+   (POST /auth/login).
+2. Your game calls the Panel BFF:
+   POST https://pameran.devsaka.id/panel/api/bff/game-token
+   Header: Authorization: Bearer <player_token>
+   Body: { "game_slug": "warzone-strike", "platform": "web" }
+3. The Panel BFF calls the API token broker server-side (broker holds the
+   credential).
+4. The BFF returns only a short-lived game access token:
+   { access_token, token_type, expires_in: 900, expires_at, game }
+5. Use this game token for all game endpoints:
+   X-Game-Access-Token: <game_token>
+6. Refresh at ~14 minutes (TTL 15 minutes).
+
+The client_secret never enters the browser. The broker resolves it
+server-side.
+
+================================================================================
+3. INTEGRATION INFORMATION
+================================================================================
+
+API Base URL: https://pameran.devsaka.id/api/v1
+Developer Workspace: https://pameran.devsaka.id/panel/developer/karya
+
+Endpoints:
+- Game contract:     GET /games/warzone-strike/contract
+- Leaderboard:       GET /games/warzone-strike/leaderboard
+- Token exchange:    POST /games/warzone-strike/auth/token
+- BFF token mint:    POST /panel/api/bff/game-token
+- Session start:     POST /games/warzone-strike/sessions/start
+- Session complete:  POST /games/warzone-strike/sessions/{id}/complete
+- Economy spend:     POST /games/warzone-strike/economy/spend
+
+Authentication flow:
+1. Player login → Sanctum bearer token (POST /auth/login).
+2. BFF mint → short-lived game access token (see Browser Flow above).
+3. Session/score endpoints: Authorization: Bearer <player_token>
+   + X-Game-Access-Token: <game_token>
+
+Economy integration:
+Coin is REQUIRED for Warzone Strike. Configured action:
+- game_entry: Enter the game — cost pending (submit Change Request)
+
+Scoring & telemetry:
+- Required telemetry: score (numeric)
+- Optional telemetry: waveReached, kills, headshots
+- Scoring: Kill = 100, headshot = +50, boss = 1000, clear wave =
+  500 x wave number. Game ends when health depletes.
+
+Platform-specific security (browser/TypeScript):
+- Never embed client_secret in browser bundle, JavaScript, local storage,
+  or network response.
+- Use Panel BFF for token minting (see Browser Flow above).
+- See TypeScript fetch flow in developer docs.
+
+Reference: See docs/handoff/games/warzone-strike.md in the P2R Developer
+Handoff Package for the complete game-specific guide.
+
+Unresolved items (confirm with P2R event team):
+- game_entry coin cost — pending your decision (1-500 coins)
+- Web credential architecture — solved via Panel BFF (no client_secret in
+  browser)
+- APK build decision — team to decide whether to ship WebView or Unity build
+
+================================================================================
+END OF MESSAGE — WARZONE STRIKE
+================================================================================
+
+Isi didalam panel:
+overview:
+Documentation /GETTING STARTED
+
+GETTING STARTED
+Overview
+API v1
+OpenAPI JSON
+A guide to the P2R developer workspace and game API — scoped to Warzone Strike (warzone-strike).
+
+01
+Build with P2R
+This portal brings game API documentation and workspace settings together. Browse the 13 canonical game integration endpoints in the left navigation, start with Quick Start, or open My Karya in the topbar to manage your game configuration.
+
+01
+Quick Start
+
+Connect a game to the API
+
+02
+Game Authentication
+
+Issue a short-lived game access token
+
+02
+Authentication model
+Game runtime credentials and player access tokens serve different purposes. Keep client_secret private on your trusted game server, exchange it for a short-lived 15-minute X-Game-Access-Token, and pair it with the player's Sanctum Authorization: Bearer token for gameplay sessions and coin actions.
+
+03
+Explore the API
+Use the grouped navigation in the sidebar to open any individual endpoint page. Every endpoint path, parameter, header, request schema, and response example is hydrated directly from the canonical OpenAPI 3.1 specification scoped to your assigned Karya.
+
+04
+Rate limits & errors
+All error responses follow a consistent JSON envelope with success: false, error_code, and message.
+
+API RATE LIMIT CONFIGURATION
+Tier	Limit	Scope	Routes
+auth-login	10 req / min	Per IP	POST /auth/login
+game-token	20 req / min	Per IP	POST /games/{slug}/auth/token, GET /games/{slug}/integration-status
+game-session	30 req / min	Per User / IP	POST /games/{slug}/sessions/start
+game-spend	30 req / min	Per User / IP	POST /games/{slug}/economy/spend
+game-score	60 req / min	Per User / IP	POST /games/{slug}/sessions/{session}/complete
+leaderboard-read	120 req / min	Per IP	GET /games/{slug}/contract, GET /games/{slug}/leaderboard
+ERROR ENVELOPE CODES
+HTTP	Error Code	Description
+401	INVALID_CREDENTIALS	client_id or client_secret is invalid or does not match.
+401	CREDENTIAL_REVOKED	The API credential has been revoked or deactivated by Super Admin.
+403	CREDENTIAL_PERMISSION_DENIED	The authenticated game credential lacks the required capability (e.g. session.start, session.complete, economy.spend).
+422	NOT_A_GAME	The requested Karya slug is not categorized as a playable Game.
+422	CONTRACT_NOT_CONFIGURED	No result contract is configured for this game slug.
+422	POLICY_NOT_CONFIGURED	No active session or leaderboard policy is configured for this game.
+404	SESSION_NOT_FOUND	Session does not exist, token is invalid (403), or session does not belong to the authenticated game/player.
+422	SESSION_NOT_ACTIVE	Game session is not in 'active' status (e.g. already finalized or aborted).
+
+
+Quick Start:
+Documentation /GETTING STARTED
+
+GETTING STARTED
+Quick Start
+API v1
+Connect your game to the P2R exhibition backend in four canonical steps: authenticate, start a session, submit results, and optionally deduct coins.
+
+01
+Game Authentication
+Exchange your server-side client_id and client_secret at POST /api/v1/games/warzone-strike/auth/token to obtain a 15-minute HMAC-SHA256 X-Game-Access-Token.
+
+cURL
+
+curl -X POST "https://pameran.devsaka.id/api/v1/games/warzone-strike/auth/token" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "client_id": "p2r_game_01HZX9...",
+    "client_secret": "sec_98a7bc...",
+    "platform": "web"
+  }'
+02
+Session Lifecycle
+Start every run with POST /api/v1/games/warzone-strike/sessions/start and finalize it with POST /api/v1/games/warzone-strike/sessions/{session}/complete passing session_token in the JSON body along with best_score.
+
+03
+Economy & Leaderboard
+For coin-enabled actions configured in Pengaturan Coin, call POST /api/v1/games/warzone-strike/economy/spend with a unique idempotency_key. Query live rankings anytime via GET /api/v1/games/warzone-strike/leaderboard.
+
+04
+Drop-In TypeScript P2R Client
+Copy this lightweight server-side client into your game backend to handle authentication, session start/completion, and idempotent coin spending.
+
+TypeScript
+
+// Drop-In TypeScript P2R Client (server-side or trusted backend)
+export class P2RClient {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly gameSlug = "warzone-strike",
+  ) {}
+
+  async issueGameToken(clientId: string, clientSecret: string, platform = "web") {
+    const res = await fetch(`${this.baseUrl}/api/v1/games/${this.gameSlug}/auth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, platform }),
+    });
+    if (!res.ok) throw new Error(`Token issue failed: ${res.status}`);
+    return res.json();
+  }
+
+  async startSession(gameToken: string, playerToken: string, idempotencyKey = crypto.randomUUID()) {
+    const res = await fetch(`${this.baseUrl}/api/v1/games/${this.gameSlug}/sessions/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Game-Access-Token": gameToken,
+        Authorization: `Bearer ${playerToken}`,
+      },
+      body: JSON.stringify({ idempotency_key: idempotencyKey }),
+    });
+    if (!res.ok) throw new Error(`Start session failed: ${res.status}`);
+    return res.json();
+  }
+
+  async completeSession(
+    sessionId: string,
+    sessionToken: string,
+    bestScore: number,
+    gameToken: string,
+    playerToken: string,
+    data: Record<string, unknown> = {},
+  ) {
+    const res = await fetch(`${this.baseUrl}/api/v1/games/${this.gameSlug}/sessions/${sessionId}/complete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Game-Access-Token": gameToken,
+        Authorization: `Bearer ${playerToken}`,
+      },
+      body: JSON.stringify({ session_token: sessionToken, best_score: bestScore, data }),
+    });
+    if (!res.ok) throw new Error(`Complete session failed: ${res.status}`);
+    return res.json();
+  }
+
+  async spendCoins(
+    actionCode: string,
+    gameToken: string,
+    playerToken: string,
+    idempotencyKey = crypto.randomUUID(),
+  ) {
+    const res = await fetch(`${this.baseUrl}/api/v1/games/${this.gameSlug}/economy/spend`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Game-Access-Token": gameToken,
+        Authorization: `Bearer ${playerToken}`,
+      },
+      body: JSON.stringify({ action_code: actionCode, idempotency_key: idempotencyKey }),
+    });
+    if (!res.ok) throw new Error(`Spend coins failed: ${res.status}`);
+    return res.json();
+  }
+}
+
+AUTHENTICATION:
+Get game details:
+Documentation /AUTHENTICATION
+
+AUTHENTICATION
+Game Authentication
+API v1
+warzone-strike
+Exchange server-side game credentials for a short-lived HMAC-SHA256 Game Access Token.
+
+POST
+/api/v1/games/warzone-strike/auth/token
+
+01
+Overview
+Exchange server-side game client credentials (client_id and client_secret) for a short-lived HMAC-SHA256 signed Game Access Token (15 minutes / 900 seconds TTL). Must be executed from a trusted game server or backend.
+
+!
+Keep your client_secret on trusted game servers only. Never embed it in a client-side build. You can reveal, rotate, or revoke your credential in Developer Credentials after password confirmation.
+
+02
+Authentication
+Authentication scheme: Game Client Credentials (Body) · Rate limit: game-token (20 req/min by IP)
+
+Required capability: Active game runtime credential (client_id + client_secret)
+
+JSON Bodyclient_id + client_secret
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+04
+Headers
+Header	Required	Description
+Content-Type	Required	Must be application/json
+Accept	Required	Must be application/json
+05
+Request Body
+Field	Type	Required	Description
+client_id	string	Yes	Issued Client ID from your Developer Workspace
+client_secret	string	Yes	Issued Client Secret (keep confidential, server-side only; reveal or rotate in Developer Credentials after password confirmation)
+platform	string | null	No	Client platform identifier, e.g. web, android, windows, godot
+06
+Example Request
+cURL
+TypeScript
+
+curl -X POST "https://pameran.devsaka.id/api/v1/games/warzone-strike/auth/token" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "client_id": "p2r_game_01HZX9...",
+    "client_secret": "sec_98a7bc...",
+    "platform": "web"
+  }'
+07
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Game access token issued successfully.",
+  "data": {
+    "access_token": "string",
+    "token_type": "Bearer",
+    "expires_in": "string",
+    "expires_at": "string",
+    "game": {
+      "id": "string",
+      "slug": "string",
+      "title": "string"
+    },
+    "credential": {
+      "id": "string",
+      "name": "string",
+      "allowed_platforms": "string",
+      "capabilities": [
+        null
+      ],
+      "leaderboard_metadata_schema": "string"
+    }
+  }
+}
+08
+Errors
+401
+Invalid credentials
+INVALID_CREDENTIALS
+client_id or client_secret is invalid or does not match.
+
+401
+Credential revoked
+CREDENTIAL_REVOKED
+The API credential has been revoked or deactivated by Super Admin.
+
+404
+Game not found
+NOT_FOUND
+No published game matches the supplied slug.
+
+429
+Rate limit exceeded
+RATE_LIMIT_EXCEEDED
+Exceeded game-token limit (20 req/min by IP).
+
+Get game contract:
+Documentation /GAME INFORMATION
+
+GAME INFORMATION
+Get Game Contract
+API v1
+warzone-strike
+Inspect the game result contract, score bounds, accepted data/metadata fields, and active event context.
+
+GET
+/api/v1/games/warzone-strike/contract
+
+01
+Overview
+Public and read-only: a game developer needs to know the accepted contract version, the metadata/telemetry field names, their types and which are required before shipping a build, without reading the server source. Consistent envelope with the rest of the API.
+
+02
+Authentication
+Authentication scheme: Public / None · Rate limit: leaderboard-read (120 req/min by IP)
+
+Public endpoint — no authentication header required.
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+QUERY PARAMETERS
+Name	Type	Required	Description
+version	string	No	Specific contract version to query (defaults to latest)
+04
+Headers
+Header	Required	Description
+Accept	Required	Must be application/json
+05
+Example Request
+cURL
+TypeScript
+
+curl -X GET "https://pameran.devsaka.id/api/v1/games/warzone-strike/contract" \
+  -H "Accept: application/json"
+06
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Game contract retrieved successfully.",
+  "data": {
+    "game": {
+      "id": "string",
+      "slug": "string",
+      "title": "string"
+    },
+    "contract": {
+      "version": null,
+      "default_version": null,
+      "action": null,
+      "score": null,
+      "metadata": {
+        "fields": "string",
+        "strict": true
+      },
+      "data": {
+        "fields": "string",
+        "strict": true
+      },
+      "scoring": {
+        "score_authority": "client",
+        "client_score_required": true,
+        "uses_adapter": true,
+        "required_telemetry": "string",
+        "computed_outputs": "string"
+      }
+    },
+    "event_context": {
+      "active": true,
+      "event": "string"
+    },
+    "leaderboard": {
+      "enabled": true
+    }
+  }
+}
+07
+Errors
+404
+Game not found
+NOT_FOUND
+No published game matches the supplied slug.
+
+422
+Contract not configured
+CONTRACT_NOT_CONFIGURED
+No result contract is configured for this game slug.
+
+
+get game events:
+Documentation /GAME INFORMATION
+
+GAME INFORMATION
+Get Game Events
+API v1
+warzone-strike
+List active exhibition events applicable to a specific game slug.
+
+GET
+/api/v1/events?game=warzone-strike
+
+01
+Overview
+Public endpoint returning currently active effective events applicable to this game (requires ?game={slug} query parameter). Mirrors server event resolution so games can read event schedule windows or echo event_id when starting a session.
+
+02
+Authentication
+Authentication scheme: Public / None · Rate limit: standard (60 req/min)
+
+Public endpoint — no authentication header required.
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+QUERY PARAMETERS
+Name	Type	Required	Description
+game	string	Yes	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+04
+Headers
+Header	Required	Description
+Accept	Required	Must be application/json
+05
+Example Request
+cURL
+TypeScript
+
+curl -X GET "https://pameran.devsaka.id/api/v1/events?game=warzone-strike" \
+  -H "Accept: application/json"
+06
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "string",
+  "data": [
+    {
+      "id": "string",
+      "slug": "string",
+      "name": "string",
+      "description": "string",
+      "is_active": true,
+      "scope": "string",
+      "is_currently_effective": true,
+      "starts_at": "string",
+      "ends_at": "string",
+      "created_at": "string",
+      "updated_at": "string"
+    }
+  ]
+}
+07
+Errors
+422
+Missing game parameter
+VALIDATION_ERROR
+Provide the ?game={slug} query parameter to resolve active events.
+
+
+SESSIONS:
+Start Session:
+Documentation /SESSIONS
+
+SESSIONS
+Start Session
+API v1
+warzone-strike
+Start a gameplay session with a cryptographic lease, idempotency protection, and optional entry coin spend.
+
+POST
+/api/v1/games/warzone-strike/sessions/start
+
+01
+Overview
+Initiates a gameplay session with a per-game configured lease duration (expires_at), idempotent replay protection, and optional entry coin deduction. Protected by request rate limits with no total session quota.
+
+02
+Authentication
+Authentication scheme: Both (Game + Player) · Rate limit: game-session (30 req/min by user/IP)
+
+Required capability: session.start
+
+X-Game-Access-Token
+eyJnaWQiOiIuLi4ifQ.<hmac_signature>
+Authorization
+Bearer 1|player_sanctum_token...
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+04
+Headers
+Header	Required	Description
+Content-Type	Required	Must be application/json
+Accept	Required	Must be application/json
+X-Game-Access-Token	Required	Short-lived HMAC-SHA256 signed Game Access Token (15 min / 900s TTL)
+Authorization	Required	Authenticated Player Sanctum Bearer Token
+05
+Request Body
+Field	Type	Required	Description
+event_id	string | null	No	Optional advisory event context identifier
+platform	string | null	No	Client platform identifier, e.g. web, android, windows, godot
+game_version	string | null	No	Client game build version
+idempotency_key	string	Yes	Unique UUID v4 preventing double-deduction or duplicate session creation
+metadata	object | null	No	Optional auxiliary run metadata object (e.g. platform, game_version)
+06
+Example Request
+cURL
+TypeScript
+
+curl -X POST "https://pameran.devsaka.id/api/v1/games/warzone-strike/sessions/start" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "X-Game-Access-Token: eyJnaWQiOiIuLi4ifQ.<hmac_signature>" \
+  -H "Authorization: Bearer 1|player_sanctum_token..." \
+  -d '{
+    "event_id": "value",
+    "platform": "web",
+    "game_version": "value",
+    "idempotency_key": "e5b8c9d0-1234-5678-9abc-def012345678",
+    "metadata": {}
+  }'
+07
+Response
+201
+CREATED
+JSON
+
+{
+  "success": true,
+  "message": "Game session started successfully.",
+  "data": {
+    "session": {
+      "id": "string",
+      "status": "string",
+      "game": "string",
+      "event_id": "string",
+      "platform": "string",
+      "started_at": "string",
+      "expires_at": "string"
+    },
+    "event_context": {
+      "active": true,
+      "event": "string"
+    },
+    "session_token": "string",
+    "is_replayed": "string"
+  }
+}
+08
+Errors
+401
+Unauthorized
+UNAUTHENTICATED
+Invalid X-Game-Access-Token or Player Bearer token.
+
+403
+Permission denied
+CREDENTIAL_PERMISSION_DENIED
+Credential lacks the session.start capability.
+
+409
+Idempotency conflict
+IDEMPOTENCY_CONFLICT
+idempotency_key was reused with a different request payload.
+
+422
+Policy not configured
+POLICY_NOT_CONFIGURED
+No active session policy is configured for this game.
+
+422
+Insufficient coin
+INSUFFICIENT_COIN
+Player wallet balance is insufficient for the session entry cost.
+
+429
+Rate limit exceeded
+RATE_LIMIT_EXCEEDED
+Exceeded game-session limit (30 req/min by user/IP).
+
+
+Complete Session:
+Documentation /SESSIONS
+
+SESSIONS
+Complete Session
+API v1
+warzone-strike
+Finalize an active gameplay session, validate best_score and data against the contract, and update the leaderboard.
+
+POST
+/api/v1/games/warzone-strike/sessions/{session}/complete
+
+01
+Overview
+Requires both player authentication (`Authorization: Bearer <token>`) and a short-lived game token (`X-Game-Access-Token`). The cryptographic `session_token` from `POST /games/{slug}/sessions/start` is passed in the JSON request body. Omit `best_score` (and `score`) together with `data` to complete a session without recording a leaderboard result (`result: null`).
+
+02
+Authentication
+Authentication scheme: Both (Game + Player) · Rate limit: game-score (60 req/min by user/IP)
+
+Required capability: session.complete
+
+X-Game-Access-Token
+eyJnaWQiOiIuLi4ifQ.<hmac_signature>
+Authorization
+Bearer 1|player_sanctum_token...
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+session	string	Gameplay session UUID returned by /sessions/start
+04
+Headers
+Header	Required	Description
+Content-Type	Required	Must be application/json
+Accept	Required	Must be application/json
+X-Game-Access-Token	Required	Short-lived HMAC-SHA256 signed Game Access Token (15 min / 900s TTL)
+Authorization	Required	Authenticated Player Sanctum Bearer Token
+05
+Request Body
+Field	Type	Required	Description
+session_token	string	Yes	Cryptographic session token returned by POST /games/{slug}/sessions/start.
+best_score	number | null	No	Canonical final score calculated by the game engine. Omit together with data to complete a session without recording a result.
+score	number | null	No	Backward-compatible alias for best_score. Must match best_score if both are supplied.
+data	object | null	No	Game-provided result data object validated against GET /games/{slug}/contract.
+metadata	object | null	No	Optional auxiliary run metadata object (e.g. platform, game_version).
+contract_version	string | null	No	Target result contract version (defaults to the game's configured default_version).
+06
+Example Request
+cURL
+TypeScript
+
+curl -X POST "https://pameran.devsaka.id/api/v1/games/warzone-strike/sessions/{session}/complete" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "X-Game-Access-Token: eyJnaWQiOiIuLi4ifQ.<hmac_signature>" \
+  -H "Authorization: Bearer 1|player_sanctum_token..." \
+  -d '{
+    "session_token": "st_9a8b7c6d5e4f...",
+    "best_score": 180,
+    "data": {},
+    "metadata": {},
+    "contract_version": "1.0"
+  }'
+07
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Game session completed successfully.",
+  "data": {
+    "session": {
+      "id": "string",
+      "status": "string",
+      "completed_at": "string"
+    },
+    "result": {
+      "id": "string",
+      "score": 100,
+      "score_scale": 100,
+      "display_score": 100,
+      "formula_version": "string",
+      "data": [
+        null
+      ]
+    }
+  }
+}
+08
+Errors
+403
+Permission denied
+CREDENTIAL_PERMISSION_DENIED
+Credential lacks the session.complete capability.
+
+404
+Session not found
+SESSION_NOT_FOUND
+Session does not exist, token is invalid, or session belongs to another game/player.
+
+422
+Session not active
+SESSION_NOT_ACTIVE
+Game session is already finalized or aborted.
+
+422
+Session expired
+SESSION_EXPIRED
+Session exceeded its configured lease duration.
+
+422
+Invalid score
+INVALID_SCORE
+Submitted best_score is missing, negative, out of bounds, or invalid for the contract.
+
+422
+Invalid metadata
+INVALID_METADATA
+Submitted data or metadata fails contract validation.
+
+
+ECONOMY & WALLET:
+Spend Coins:
+
+ECONOMY & WALLET
+Spend Coins
+API v1
+warzone-strike
+Deduct player coins server-authoritatively for a configured game action_code with idempotency.
+
+POST
+/api/v1/games/warzone-strike/economy/spend
+
+01
+Overview
+Executes a server-authoritative coin deduction for a configured game action_code with idempotent execution.
+
+02
+Authentication
+Authentication scheme: Both (Game + Player) · Rate limit: game-spend (30 req/min by user/IP)
+
+Required capability: economy.spend
+
+X-Game-Access-Token
+eyJnaWQiOiIuLi4ifQ.<hmac_signature>
+Authorization
+Bearer 1|player_sanctum_token...
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+04
+Headers
+Header	Required	Description
+Content-Type	Required	Must be application/json
+Accept	Required	Must be application/json
+X-Game-Access-Token	Required	Short-lived HMAC-SHA256 signed Game Access Token (15 min / 900s TTL)
+Authorization	Required	Authenticated Player Sanctum Bearer Token
+05
+Request Body
+Field	Type	Required	Description
+action_code	string	Yes	Configured economy action code (e.g. revive, continue, session_start)
+session_id	string | null	No	Field session_id
+event_id	string | null	No	Optional advisory event context identifier
+idempotency_key	string | null	No	Unique UUID v4 preventing double-deduction or duplicate session creation
+06
+Example Request
+cURL
+TypeScript
+
+curl -X POST "https://pameran.devsaka.id/api/v1/games/warzone-strike/economy/spend" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "X-Game-Access-Token: eyJnaWQiOiIuLi4ifQ.<hmac_signature>" \
+  -H "Authorization: Bearer 1|player_sanctum_token..." \
+  -d '{
+    "action_code": "continue",
+    "session_id": "value",
+    "event_id": "value",
+    "idempotency_key": "e5b8c9d0-1234-5678-9abc-def012345678"
+  }'
+07
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Game economy action executed successfully.",
+  "data": {
+    "transaction": {
+      "id": "string",
+      "action_code": "string",
+      "amount": 100,
+      "balance_after": 100
+    }
+  }
+}
+08
+Errors
+403
+Permission denied
+CREDENTIAL_PERMISSION_DENIED
+Credential lacks the economy.spend capability.
+
+409
+Idempotency conflict
+IDEMPOTENCY_CONFLICT
+idempotency_key was reused with a different action_code or payload.
+
+422
+Action not configured
+ECONOMY_ACTION_NOT_CONFIGURED
+The requested action_code is not configured or enabled for this game.
+
+422
+Insufficient coin
+INSUFFICIENT_COIN
+Player wallet balance is lower than the required coin cost.
+
+429
+Rate limit exceeded
+RATE_LIMIT_EXCEEDED
+Exceeded game-spend limit (30 req/min by user/IP).
+
+
+Get Wallet:
+
+ECONOMY & WALLET
+Get Wallet
+API v1
+warzone-strike
+Retrieve the authenticated player's current P2R coin balance and recent transactions.
+
+GET
+/api/v1/me/wallet
+
+01
+Overview
+Retrieve the authenticated player's current P2R coin balance and recent coin transactions.
+
+02
+Authentication
+Authentication scheme: Player Token · Rate limit: standard (60 req/min)
+
+Authorization
+Bearer 1|player_sanctum_token...
+03
+Headers
+Header	Required	Description
+Accept	Required	Must be application/json
+Authorization	Required	Authenticated Player Sanctum Bearer Token
+04
+Example Request
+cURL
+TypeScript
+
+curl -X GET "https://pameran.devsaka.id/api/v1/me/wallet" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|player_sanctum_token..."
+05
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Wallet retrieved.",
+  "data": {
+    "wallet_id": "string",
+    "balance": 100,
+    "transactions": [
+      {
+        "id": "string",
+        "wallet_id": "string",
+        "type": "string",
+        "amount": 100,
+        "balance_before": 100,
+        "balance_after": 100,
+        "reference_type": "string",
+        "reference_id": "string",
+        "description": "string",
+        "admin_id": 100,
+        "created_at": "string",
+        "updated_at": "string",
+        "source_domain": "string",
+        "karya_id": "string",
+        "session_id": "string",
+        "event_id": "string",
+        "action_code": "string",
+        "action_version": "string",
+        "idempotency_key": "string"
+      }
+    ]
+  }
+}
+06
+Errors
+401
+Unauthorized
+UNAUTHENTICATED
+Missing or expired Player Sanctum Bearer token.
+
+
+LEADERBOARD:
+get leaderboard:
+
+LEADERBOARD
+Get Leaderboard
+API v1
+warzone-strike
+Query real-time per-player best-score rankings with optional personalized my_rank.
+
+GET
+/api/v1/games/warzone-strike/leaderboard
+
+01
+Overview
+Returns real-time leaderboard rankings with per-player best-score deduplication, configurable direction (higher_is_better or lower_is_better), and optional personalized my_rank.
+
+02
+Authentication
+Authentication scheme: Public (Optional Player Token) · Rate limit: leaderboard-read (120 req/min by IP)
+
+Authorization
+Bearer 1|player_sanctum_token...
+(Optional)
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+QUERY PARAMETERS
+Name	Type	Required	Description
+limit	string	No	Maximum records to return (1-100)
+offset	string	No	Query parameter offset
+event_id	string	No	Query parameter event_id
+04
+Headers
+Header	Required	Description
+Accept	Required	Must be application/json
+Authorization	Optional	Authenticated Player Sanctum Bearer Token
+05
+Example Request
+cURL
+TypeScript
+
+curl -X GET "https://pameran.devsaka.id/api/v1/games/warzone-strike/leaderboard" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|player_sanctum_token..."
+06
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Leaderboard retrieved successfully.",
+  "data": {
+    "game": {
+      "id": "string",
+      "slug": "string",
+      "title": "string"
+    },
+    "event": "string",
+    "direction": "string",
+    "display_fields": [
+      null
+    ],
+    "total_players": 100,
+    "leaderboard": [
+      null
+    ],
+    "my_rank": {
+      "result_id": "string",
+      "session_id": "string",
+      "rank": 100,
+      "score": 100,
+      "best_score": 100,
+      "data": null,
+      "submitted_at": "string"
+    }
+  }
+}
+07
+Errors
+404
+Game not found
+NOT_FOUND
+No published game matches the supplied slug.
+
+429
+Rate limit exceeded
+RATE_LIMIT_EXCEEDED
+Exceeded leaderboard-read limit (120 req/min by IP).
+
+
+
+INTEGRATION:
+Integration Status:
+Documentation /INTEGRATION
+
+INTEGRATION
+Integration Status
+API v1
+warzone-strike
+Verify your X-Game-Access-Token, credential capabilities, contract readiness, and active event context.
+
+GET
+/api/v1/games/warzone-strike/integration-status
+
+01
+Overview
+Read-only by construction: it authenticates, then only reads. It creates no session, mints no token, writes no leaderboard row, and deliberately passes `recordUsage: false` so that inspecting status does not advance `last_used_at` and manufacture evidence of activity. Token-only. `client_id` / `client_secret` are never read from headers, body or query: a long-lived secret must not travel in a request to obtain a status report, and the broker already removed that distribution model. Scope is enforced by validateAccessToken() itself, which rejects a token whose `gid` is not this game before anything is returned; a mismatched token therefore surfaces as a 401/403 rather than as a body state. Every fact reported is independently checkable. Nothing here asserts that a score has ever been accepted - see `score_submission`.
+
+02
+Authentication
+Authentication scheme: Game Client Token · Rate limit: game-token (20 req/min by IP)
+
+Required capability: Valid X-Game-Access-Token
+
+X-Game-Access-Token
+eyJnaWQiOiIuLi4ifQ.<hmac_signature>
+03
+Request
+Supply the required path or query parameters when calling this endpoint.
+
+PATH PARAMETERS
+Name	Type	Description
+slug	string	Canonical slug for your assigned Karya (Warzone Strike): warzone-strike
+QUERY PARAMETERS
+Name	Type	Required	Description
+version	string	No	Specific contract version to query (defaults to latest)
+04
+Headers
+Header	Required	Description
+Accept	Required	Must be application/json
+X-Game-Access-Token	Required	Short-lived HMAC-SHA256 signed Game Access Token (15 min / 900s TTL)
+05
+Example Request
+cURL
+TypeScript
+
+curl -X GET "https://pameran.devsaka.id/api/v1/games/warzone-strike/integration-status" \
+  -H "Accept: application/json" \
+  -H "X-Game-Access-Token: eyJnaWQiOiIuLi4ifQ.<hmac_signature>"
+06
+Response
+200
+OK
+JSON
+
+{
+  "success": true,
+  "message": "Integration status retrieved.",
+  "data": {
+    "game": {
+      "id": "string",
+      "slug": "string",
+      "title": "string"
+    },
+    "credential": {
+      "authenticated": true,
+      "state": "string",
+      "capabilities": [
+        null
+      ]
+    },
+    "scope": "match",
+    "contract": {
+      "available": true,
+      "version": "string",
+      "action": "string",
+      "metadata": "string",
+      "data": "string",
+      "scoring": "string"
+    },
+    "active_event": "string",
+    "score_submission": {
+      "state": "unverified",
+      "reason": "string"
+    }
+  }
+}
+07
+Errors
+401
+Unauthorized
+UNAUTHENTICATED
+Missing, expired, or invalid X-Game-Access-Token header.
+
+404
+Game not found
+NOT_FOUND
+No published game matches the supplied slug.
+
+429
+Rate limit exceeded
+RATE_LIMIT_EXCEEDED
+Exceeded game-token limit (20 req/min by IP).

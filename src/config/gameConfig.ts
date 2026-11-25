@@ -127,10 +127,16 @@ export interface RewardConfig {
 }
 
 export type MockLeaderboardMode = 'success' | 'failure' | 'timeout' | 'offline';
+export type LeaderboardBackendMode = 'mock' | 'p2r';
 
 export interface LeaderboardConfig {
+  mode: LeaderboardBackendMode;
   mockMode: MockLeaderboardMode;
   submissionTimeoutMs: number;
+  apiBaseUrl: string;
+  gameSlug: string;
+  clientId: string;
+  clientSecret: string;
 }
 
 export interface SupplyDropConfig {
@@ -315,8 +321,13 @@ export const GAME_CONFIG: GameConfig = {
   },
   score: DEFAULT_SCORE_CONFIG,
   leaderboard: {
+    mode: 'p2r',
     mockMode: 'success',
     submissionTimeoutMs: 10000,
+    apiBaseUrl: 'https://pameran.devsaka.id/api/v1',
+    gameSlug: 'warzone-strike',
+    clientId: 'p2r_game_gvsbriittcecfjs4',
+    clientSecret: 'sec_em7gAPKdiCahFP4bjOh7EvPEBNlub3KLZXm70aCW',
   },
   supplyDrop: {
     interactionRadius: 2.5,
