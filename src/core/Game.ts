@@ -22,11 +22,14 @@ import { GrenadeManager } from '../weapons/Grenade';
 import { SupplyDropManager } from '../wave/SupplyDropManager';
 import { SupplySelectionModal, SupplyItemType, SupplyLoadoutState } from '../ui/SupplySelectionModal';
 import { isBossWave } from '../wave/WaveConfig';
-import { PlayerIdentityProvider } from '../identity/PlayerIdentityProvider';
-import { MockPlayerIdentityProvider } from '../identity/MockPlayerIdentityProvider';
+import { P2RPlayerIdentityProvider } from '../identity/P2RPlayerIdentityProvider';
+import { P2RAuthService } from '../identity/P2RAuthService';
 import { LeaderboardClient } from '../leaderboard/LeaderboardClient';
 import { MockLeaderboardClient } from '../leaderboard/MockLeaderboardClient';
+import { P2RLeaderboardClient } from '../leaderboard/P2RLeaderboardClient';
 import { QueueSubmissionResult, ScoreSubmissionQueue } from '../leaderboard/ScoreSubmissionQueue';
+import { LoginModal } from '../ui/LoginModal';
+import { LeaderboardModal } from '../ui/LeaderboardModal';
 import { ScorePayload } from '../scoring/ScoreManager';
 import { audio } from '../audio/AudioManager';
 import { UPGRADE_CONFIG, UpgradeKind, UpgradeSteps } from '../config/upgradeConfig';
@@ -51,9 +54,12 @@ export class Game {
   private readonly supplyModal: SupplySelectionModal;
   private readonly projectileManager: EnemyProjectileManager;
   private readonly scoreManager: ScoreManager;
-  private readonly identityProvider: PlayerIdentityProvider;
+  private readonly identityProvider: P2RPlayerIdentityProvider;
+  private readonly authService: P2RAuthService;
   private readonly leaderboardClient: LeaderboardClient;
   private readonly scoreSubmissionQueue: ScoreSubmissionQueue;
+  private readonly loginModal: LoginModal;
+  private readonly leaderboardModal: LeaderboardModal;
   private currentScorePayload: ScorePayload | null = null;
   private hasRetriedPendingScoresOnStartup: boolean = false;
   private activeWeaponType: WeaponType = 'sniper';
@@ -151,11 +157,20 @@ export class Game {
     // 8. Enemy Projectiles Manager
     this.projectileManager = new EnemyProjectileManager(this.scene);
 
-    // 9. Score Manager
+    // 9. Score Manager & P2R Leaderboard Integration
     this.scoreManager = new ScoreManager(GAME_CONFIG.score);
-    this.identityProvider = new MockPlayerIdentityProvider();
-    this.leaderboardClient = new MockLeaderboardClient(GAME_CONFIG.leaderboard);
+    this.identityProvider = new P2RPlayerIdentityProvider();
+    this.authService = new P2RAuthService(GAME_CONFIG.leaderboard.apiBaseUrl);
+    this.leaderboardClient =
+      GAME_CONFIG.leaderboard.mode === 'p2r'
+        ? new P2RLeaderboardClient(GAME_CONFIG.leaderboard, this.identityProvider)
+        : new MockLeaderboardClient(GAME_CONFIG.leaderboard);
     this.scoreSubmissionQueue = new ScoreSubmissionQueue();
+    this.loginModal = new LoginModal(this.authService, this.identityProvider);
+    this.loginModal.setOnAuthChanged(() => {
+      // Auth state updated in LoginModal; no active run disruption needed.
+    });
+    this.leaderboardModal = new LeaderboardModal(this.leaderboardClient);
     this.scoreManager.onScoreChanged = (score, delta, reason) => {
       this.hud.updateScore(score, delta, reason);
     };
@@ -378,6 +393,24 @@ export class Game {
 
     this.startOverlay = document.querySelector<HTMLElement>('#start-overlay');
     this.startBtn = document.querySelector<HTMLButtonElement>('#btn-start-game');
+
+    const lobbyLeaderboardBtn = document.querySelector<HTMLButtonElement>('#btn-open-leaderboard');
+    if (lobbyLeaderboardBtn) {
+      lobbyLeaderboardBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.leaderboardModal.open();
+      });
+    }
+
+    const goLeaderboardBtn = document.querySelector<HTMLButtonElement>('#btn-go-leaderboard');
+    if (goLeaderboardBtn) {
+      goLeaderboardBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.leaderboardModal.open();
+      });
+    }
 
     // 10. Event listeners
     this.setupEventListeners();
@@ -1064,8 +1097,10 @@ export class Game {
         'Score stored in session memory. localStorage unavailable; submission will still proceed.',
         false
       );
+    } else if (this.identityProvider.isLoggedIn()) {
+      this.gameOverScreen.setSubmissionStatus('Submitting score to P2R leaderboard...', false);
     } else {
-      this.gameOverScreen.setSubmissionStatus('Submitting score to mock leaderboard...', false);
+      this.gameOverScreen.setSubmissionStatus('Saving score locally (Guest mode)...', false);
     }
 
     const result = await this.scoreSubmissionQueue.submit(
@@ -1082,6 +1117,7 @@ export class Game {
       case 'submitted':
       case 'already_submitted':
         this.setState('SCORE_SUBMITTED');
+        this.gameOverScreen.setSubmissionStatus(result.message, false, true);
         break;
 
       case 'timeout':
@@ -1237,6 +1273,9 @@ export class Game {
         this.playerController.setEnabled(true);
         if (this.waveManager.getState() === 'NOT_STARTED') {
           this.waveManager.startFirstWave();
+          if (this.leaderboardClient instanceof P2RLeaderboardClient) {
+            void this.leaderboardClient.startSession();
+          }
         }
         break;
 
