@@ -2,18 +2,50 @@
   "name": "warzone-strike",
   "private": true,
   "version": "0.1.0",
+  "description": "Tactical 3D Wave Survival FPS",
+  "author": "Warzone Strike Team",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:preview": "npm run build && electron .",
+    "electron:build:linux": "npm run build && electron-builder --linux",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build": "npm run build && electron-builder --linux --win"
   },
   "dependencies": {
     "three": "0.165.0"
   },
   "devDependencies": {
     "@types/three": "0.165.0",
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.2"
+  },
+  "build": {
+    "appId": "com.warzonestrike.app",
+    "productName": "Warzone Strike",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    }
   }
 }
