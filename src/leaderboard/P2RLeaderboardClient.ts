@@ -1,4 +1,4 @@
-import { LeaderboardClient, LeaderboardData, LeaderboardSubmissionResult } from './LeaderboardClient';
+import { LeaderboardClient, LeaderboardData, LeaderboardSubmissionResult, SpendCoinsResult } from './LeaderboardClient';
 import { LeaderboardConfig } from '../config/gameConfig';
 import { ScorePayload } from '../scoring/ScoreManager';
 import { P2RPlayerIdentityProvider } from '../identity/P2RPlayerIdentityProvider';
@@ -169,6 +169,109 @@ export class P2RLeaderboardClient implements LeaderboardClient {
           ? 'Network is offline. Your score is safely queued locally.'
           : (err instanceof Error ? err.message : 'Unknown network failure.'),
       };
+    }
+  }
+
+  /**
+   * Deducts player coins/points to start a game (like an arcade timezone token).
+   * Calls POST /api/v1/games/warzone-strike/economy/spend
+   */
+  public async spendEntryCoins(amount: number = 100, signal?: AbortSignal): Promise<SpendCoinsResult> {
+    const playerToken = this.playerProvider.getPlayerToken();
+    if (!playerToken || !this.playerProvider.isLoggedIn()) {
+      return {
+        success: true,
+        message: 'Guest mode: no entry coins required.',
+      };
+    }
+
+    try {
+      const gameToken = await this.getGameAccessToken(signal);
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `spend-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+      const response = await fetch(`${this.config.apiBaseUrl}/games/${this.config.gameSlug}/economy/spend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-Game-Access-Token': gameToken,
+          Authorization: `Bearer ${playerToken}`,
+        },
+        body: JSON.stringify({
+          action_code: 'game_entry',
+          idempotency_key: idempotencyKey,
+        }),
+        signal,
+      });
+
+      const resData = await response.json().catch(() => null);
+
+      if (!response.ok || !resData || !resData.success) {
+        const errorMsg = resData?.message || `Failed to spend coins (HTTP ${response.status})`;
+        const isInsufficient =
+          response.status === 422 &&
+          (resData?.error === 'INSUFFICIENT_COIN' ||
+            errorMsg.toLowerCase().includes('insufficient') ||
+            errorMsg.toLowerCase().includes('lower than the required') ||
+            errorMsg.toLowerCase().includes('balance'));
+
+        return {
+          success: false,
+          insufficientCoins: isInsufficient,
+          message: isInsufficient
+            ? `⚠️ Poin tidak cukup! Butuh ${amount} PTS untuk bermain.`
+            : errorMsg,
+        };
+      }
+
+      return {
+        success: true,
+        amount: resData.data?.transaction?.amount ?? amount,
+        balanceAfter: resData.data?.transaction?.balance_after,
+        message: `Berhasil memotong ${amount} poin untuk memulai game.`,
+      };
+    } catch (err: unknown) {
+      console.warn('[P2RLeaderboardClient] Error executing spendCoins:', err);
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      return {
+        success: false,
+        message: isOffline
+          ? 'Koneksi offline. Tidak dapat memverifikasi pemotongan poin akun.'
+          : (err instanceof Error ? err.message : 'Gagal menghubungi server ekonomi.'),
+      };
+    }
+  }
+
+  /**
+   * Retrieves current player coin balance from GET /api/v1/me/wallet
+   */
+  public async getWalletBalance(signal?: AbortSignal): Promise<number | null> {
+    const playerToken = this.playerProvider.getPlayerToken();
+    if (!playerToken || !this.playerProvider.isLoggedIn()) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${this.config.apiBaseUrl}/me/wallet`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${playerToken}`,
+        },
+        signal,
+      });
+
+      const resData = await response.json().catch(() => null);
+      if (response.ok && resData && resData.success && resData.data) {
+        return Number(resData.data.balance) ?? null;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[P2RLeaderboardClient] Error fetching wallet:', err);
+      return null;
     }
   }
 

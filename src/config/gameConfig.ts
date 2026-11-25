@@ -157,6 +157,8 @@ export interface ScoreConfig {
   enemyKill?: number;
   headshotBonus: number;
   bossKill: number;
+  bossHeadshotScore?: number;
+  bossHeadshotBonus?: number;
   waveClearMultiplier: number;
   waveClearBonus?: number;
 }
@@ -165,9 +167,11 @@ export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
   regularKill: 100,
   enemyKill: 100,
   headshotBonus: 50,
-  bossKill: 1000,
-  waveClearMultiplier: 500,
-  waveClearBonus: 500,
+  bossKill: 10,
+  bossHeadshotScore: 12,
+  bossHeadshotBonus: 2,
+  waveClearMultiplier: 0,
+  waveClearBonus: 0,
 };
 
 export interface GameConfig {

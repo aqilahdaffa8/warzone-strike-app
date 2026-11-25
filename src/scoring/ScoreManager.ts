@@ -126,7 +126,13 @@ export class ScoreManager {
     let reason = 'BOSS DESTROYED';
 
     if (isHeadshot) {
-      added += this.config.headshotBonus;
+      if (this.config.bossHeadshotScore !== undefined) {
+        added = this.config.bossHeadshotScore;
+      } else if (this.config.bossHeadshotBonus !== undefined) {
+        added = this.config.bossKill + this.config.bossHeadshotBonus;
+      } else {
+        added += this.config.headshotBonus;
+      }
       reason = 'BOSS HEADSHOT KILL';
     }
 
@@ -138,11 +144,15 @@ export class ScoreManager {
 
   public addWaveClear(waveNumber: number): void {
     this.setWaveReached(waveNumber);
-    const added = this.config.waveClearMultiplier * waveNumber;
-    this.score += added;
+    const multiplier = this.config.waveClearMultiplier ?? 0;
+    const bonus = this.config.waveClearBonus ?? 0;
+    const added = multiplier * waveNumber + bonus;
 
-    if (this.onScoreChanged) {
-      this.onScoreChanged(this.score, added, `WAVE ${waveNumber} CLEARED`);
+    if (added > 0) {
+      this.score += added;
+      if (this.onScoreChanged) {
+        this.onScoreChanged(this.score, added, `WAVE ${waveNumber} CLEARED`);
+      }
     }
   }
 

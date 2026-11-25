@@ -97,6 +97,9 @@ export class Game {
 
   private readonly startOverlay: HTMLElement | null;
   private readonly startBtn: HTMLButtonElement | null;
+  private readonly topupBtn: HTMLButtonElement | null;
+  private readonly lobbyEntryMsgEl: HTMLElement | null;
+  private isDeductingEntryCoins: boolean = false;
 
   // Track right-click interaction for hold-to-aim vs toggle-to-aim (sniper scope)
   private rightMouseDownTime: number = 0;
@@ -171,7 +174,22 @@ export class Game {
     this.scoreSubmissionQueue = new ScoreSubmissionQueue();
     this.loginModal = new LoginModal(this.authService, this.identityProvider);
     this.loginModal.setOnAuthChanged(() => {
-      // Auth state updated in LoginModal; no active run disruption needed.
+      this.updateLobbyStartButton();
+      if (this.lobbyEntryMsgEl) {
+        this.lobbyEntryMsgEl.style.display = 'none';
+        this.lobbyEntryMsgEl.textContent = '';
+      }
+      if (this.identityProvider.isLoggedIn() && this.leaderboardClient.getWalletBalance) {
+        void this.leaderboardClient.getWalletBalance().then((balance) => {
+          if (balance !== null) {
+            this.savePlayerPoints(balance);
+          } else {
+            this.loginModal.setPoints(this.getPlayerPoints());
+          }
+        });
+      } else {
+        this.loginModal.setPoints(this.getPlayerPoints());
+      }
     });
     this.leaderboardModal = new LeaderboardModal(this.leaderboardClient);
     this.loadingScreen = new LoadingScreen();
@@ -400,6 +418,17 @@ export class Game {
 
     this.startOverlay = document.querySelector<HTMLElement>('#start-overlay');
     this.startBtn = document.querySelector<HTMLButtonElement>('#btn-start-game');
+    this.topupBtn = document.querySelector<HTMLButtonElement>('#btn-topup-points');
+    this.lobbyEntryMsgEl = document.querySelector<HTMLElement>('#lobby-entry-msg');
+    this.updateLobbyStartButton();
+
+    if (this.topupBtn) {
+      this.topupBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.topupPoints(100);
+      });
+    }
 
     const lobbyLeaderboardBtn = document.querySelector<HTMLButtonElement>('#btn-open-leaderboard');
     if (lobbyLeaderboardBtn) {
@@ -844,14 +873,14 @@ export class Game {
       this.startBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.enterGame();
+        void this.enterGame();
       });
     }
 
     if (this.startOverlay) {
       this.startOverlay.addEventListener('click', (e) => {
         if (e.target === this.startOverlay) {
-          this.enterGame();
+          void this.enterGame();
         }
       });
     }
@@ -864,25 +893,155 @@ export class Game {
             this.canvas.requestPointerLock();
           } catch (_) {}
         }
-      } else if (this.state === 'PAUSED' || this.state === 'MENU') {
-        this.enterGame();
+      } else if (this.state === 'PAUSED') {
+        void this.enterGame();
       }
     });
   }
 
-  public enterGame(): void {
-    if (this.state !== 'GAME_OVER') {
-      this.setState('PLAYING');
-      try {
-        const res = this.canvas.requestPointerLock() as unknown;
-        if (res && typeof (res as Promise<void>).catch === 'function') {
-          (res as Promise<void>).catch((err) => {
-            console.warn('Pointer lock request was postponed or denied by browser:', err);
-          });
-        }
-      } catch (err) {
-        console.warn('Pointer lock error:', err);
+  public getPlayerPoints(): number {
+    try {
+      const stored = window.localStorage.getItem('warzone-strike:player-points:v1');
+      if (stored !== null) {
+        return Math.max(0, parseInt(stored, 10) || 0);
       }
+    } catch (_) {}
+    return 0; // Default starts at 0 PTS
+  }
+
+  public savePlayerPoints(points: number): void {
+    const val = Math.max(0, Math.floor(points));
+    try {
+      window.localStorage.setItem('warzone-strike:player-points:v1', String(val));
+    } catch (_) {}
+    this.loginModal.setPoints(val);
+  }
+
+  public topupPoints(amount: number = 100): void {
+    const current = this.getPlayerPoints();
+    const updated = current + amount;
+    this.savePlayerPoints(updated);
+    if (this.lobbyEntryMsgEl) {
+      this.lobbyEntryMsgEl.style.display = 'none';
+      this.lobbyEntryMsgEl.textContent = '';
+    }
+    this.hud.showToast(`🪙 +${amount} Points added! Total: ${updated} PTS`, 'info', 3000);
+  }
+
+  public async enterGame(): Promise<void> {
+    if (this.state === 'GAME_OVER') return;
+
+    // Resuming from pause: simple unpause, no deduction
+    if (this.state === 'PAUSED') {
+      this.setState('PLAYING');
+      this.requestPointerLockSafe();
+      return;
+    }
+
+    // Entering from MENU: deduct 100 entry points
+    if (this.state === 'MENU') {
+      const allowed = await this.deductEntryCoinsAndValidate();
+      if (!allowed) {
+        return; // Blocked because of insufficient coins or spend error
+      }
+      this.setState('PLAYING');
+      this.requestPointerLockSafe();
+    }
+  }
+
+  private requestPointerLockSafe(): void {
+    try {
+      const res = this.canvas.requestPointerLock() as unknown;
+      if (res && typeof (res as Promise<void>).catch === 'function') {
+        (res as Promise<void>).catch((err) => {
+          console.warn('Pointer lock request was postponed or denied by browser:', err);
+        });
+      }
+    } catch (err) {
+      console.warn('Pointer lock error:', err);
+    }
+  }
+
+  public updateLobbyStartButton(): void {
+    if (!this.startBtn) return;
+    const isLoggedIn = this.identityProvider.isLoggedIn();
+    this.startBtn.textContent = isLoggedIn ? 'CLICK TO ENTER ARENA (100 PTS)' : 'CLICK TO ENTER ARENA';
+    this.startBtn.disabled = false;
+  }
+
+  private async deductEntryCoinsAndValidate(): Promise<boolean> {
+    // Guest players do NOT require PTS to play (free play for guests)
+    if (!this.identityProvider.isLoggedIn()) {
+      if (this.lobbyEntryMsgEl) {
+        this.lobbyEntryMsgEl.style.display = 'none';
+        this.lobbyEntryMsgEl.textContent = '';
+      }
+      return true;
+    }
+
+    if (this.isDeductingEntryCoins) return false;
+
+    const currentPoints = this.getPlayerPoints();
+
+    // STRICT CHECK FOR LOGGED IN USERS: IF CURRENT POINTS < 100, BLOCK ENTRY COMPLETELY!
+    if (currentPoints < 100) {
+      if (this.lobbyEntryMsgEl) {
+        this.lobbyEntryMsgEl.textContent = '⚠️ Poin tidak cukup! Butuh 100 PTS untuk bermain.';
+        this.lobbyEntryMsgEl.className = 'login-status-msg error';
+        this.lobbyEntryMsgEl.style.display = 'block';
+      }
+      this.updateLobbyStartButton();
+      return false; // DIBLOKIR TOTAL
+    }
+
+    this.isDeductingEntryCoins = true;
+    if (this.startBtn) {
+      this.startBtn.disabled = true;
+      this.startBtn.textContent = 'VERIFYING 100 PTS...';
+    }
+    if (this.lobbyEntryMsgEl) {
+      this.lobbyEntryMsgEl.style.display = 'none';
+      this.lobbyEntryMsgEl.textContent = '';
+    }
+
+    try {
+      // If logged in to P2R, also dispatch spend request to server
+      if (this.identityProvider.isLoggedIn() && this.leaderboardClient.spendEntryCoins) {
+        const result = await this.leaderboardClient.spendEntryCoins(100);
+        if (!result.success && result.insufficientCoins) {
+          if (this.lobbyEntryMsgEl) {
+            this.lobbyEntryMsgEl.textContent = result.message;
+            this.lobbyEntryMsgEl.className = 'login-status-msg error';
+            this.lobbyEntryMsgEl.style.display = 'block';
+          }
+          this.updateLobbyStartButton();
+          this.isDeductingEntryCoins = false;
+          return false;
+        }
+
+        if (result.balanceAfter !== undefined) {
+          this.savePlayerPoints(result.balanceAfter);
+        } else {
+          this.savePlayerPoints(currentPoints - 100);
+        }
+      } else {
+        // Local token spend deduction
+        this.savePlayerPoints(currentPoints - 100);
+      }
+
+      this.hud.showToast(`🪙 100 Points deducted! Sisa saldo: ${this.getPlayerPoints()} PTS`, 'info', 3500);
+      return true;
+    } catch (err) {
+      console.warn('[Game] Error deducting entry coins:', err);
+      if (this.lobbyEntryMsgEl) {
+        this.lobbyEntryMsgEl.textContent = 'Gagal memproses pemotongan koin masuk.';
+        this.lobbyEntryMsgEl.className = 'login-status-msg error';
+        this.lobbyEntryMsgEl.style.display = 'block';
+      }
+      return false;
+    } finally {
+      this.updateLobbyStartButton();
+      this.isDeductingEntryCoins = false;
     }
   }
 
@@ -1239,14 +1398,18 @@ export class Game {
     this.hud.hideIntermission();
   }
 
-  public restartGame(): void {
+  public async restartGame(): Promise<void> {
+    const allowed = await this.deductEntryCoinsAndValidate();
+    if (!allowed) {
+      this.returnToLobby();
+      return;
+    }
+
     this.resetRunState();
 
     // 6. Enter Playing state & start Wave 1
     this.setState('PLAYING');
-    try {
-      this.canvas.requestPointerLock();
-    } catch (_) {}
+    this.requestPointerLockSafe();
     // Wave 1 is started by setState('PLAYING') above (WaveManager is in NOT_STARTED after reset).
   }
 
@@ -1257,6 +1420,21 @@ export class Game {
     this.isInitialFlowActive = false;
     this.resetRunState();
     this.hud.hide();
+
+    // Refresh wallet balance if logged in
+    this.loginModal.setPoints(this.getPlayerPoints());
+    this.updateLobbyStartButton();
+    if (this.lobbyEntryMsgEl) {
+      this.lobbyEntryMsgEl.style.display = 'none';
+      this.lobbyEntryMsgEl.textContent = '';
+    }
+    if (this.identityProvider.isLoggedIn() && this.leaderboardClient.getWalletBalance) {
+      void this.leaderboardClient.getWalletBalance().then((balance) => {
+        if (balance !== null) {
+          this.savePlayerPoints(balance);
+        }
+      });
+    }
 
     // 6. Return to Menu State & show Start/Lobby overlay
     this.setState('MENU');
@@ -1416,8 +1594,21 @@ export class Game {
     // Flow 3: Once user completes login or clicks "Continue as Guest", show index page
     this.loginModal.setOnDismiss(() => {
       this.isInitialFlowActive = false;
+      this.updateLobbyStartButton();
+      if (this.lobbyEntryMsgEl) {
+        this.lobbyEntryMsgEl.style.display = 'none';
+        this.lobbyEntryMsgEl.textContent = '';
+      }
       if (this.startOverlay) {
         this.startOverlay.style.display = 'flex';
+      }
+      this.loginModal.setPoints(this.getPlayerPoints());
+      if (this.identityProvider.isLoggedIn() && this.leaderboardClient.getWalletBalance) {
+        void this.leaderboardClient.getWalletBalance().then((balance) => {
+          if (balance !== null) {
+            this.savePlayerPoints(balance);
+          }
+        });
       }
     });
   }

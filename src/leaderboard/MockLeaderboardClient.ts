@@ -1,4 +1,4 @@
-import { LeaderboardClient, LeaderboardSubmissionResult } from './LeaderboardClient';
+import { LeaderboardClient, LeaderboardSubmissionResult, SpendCoinsResult } from './LeaderboardClient';
 import { MockLeaderboardMode, LeaderboardConfig } from '../config/gameConfig';
 import { ScorePayload } from '../scoring/ScoreManager';
 
@@ -7,6 +7,29 @@ export class MockLeaderboardClient implements LeaderboardClient {
 
   constructor(config: LeaderboardConfig) {
     this.config = config;
+  }
+
+  private mockBalance: number = 200;
+
+  public async spendEntryCoins(amount: number = 100): Promise<SpendCoinsResult> {
+    if (this.mockBalance < amount) {
+      return {
+        success: false,
+        insufficientCoins: true,
+        message: `⚠️ Poin tidak cukup! Butuh ${amount} PTS untuk bermain.`,
+      };
+    }
+    this.mockBalance -= amount;
+    return {
+      success: true,
+      amount,
+      balanceAfter: this.mockBalance,
+      message: `Berhasil memotong ${amount} poin token masuk game.`,
+    };
+  }
+
+  public async getWalletBalance(): Promise<number | null> {
+    return this.mockBalance;
   }
 
   public async submitScore(_payload: ScorePayload, signal?: AbortSignal): Promise<LeaderboardSubmissionResult> {

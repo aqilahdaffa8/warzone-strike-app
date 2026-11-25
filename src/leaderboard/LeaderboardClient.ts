@@ -37,7 +37,17 @@ export interface LeaderboardData {
   } | null;
 }
 
+export interface SpendCoinsResult {
+  success: boolean;
+  message: string;
+  amount?: number;
+  balanceAfter?: number;
+  insufficientCoins?: boolean;
+}
+
 export interface LeaderboardClient {
   submitScore(payload: ScorePayload, signal?: AbortSignal): Promise<LeaderboardSubmissionResult>;
   fetchLeaderboard?(limit?: number, offset?: number): Promise<LeaderboardData>;
+  spendEntryCoins?(amount?: number, signal?: AbortSignal): Promise<SpendCoinsResult>;
+  getWalletBalance?(signal?: AbortSignal): Promise<number | null>;
 }

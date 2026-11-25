@@ -13,6 +13,8 @@ export class LoginModal {
   // Lobby Account Bar elements
   private readonly badgeEl: HTMLElement | null;
   private readonly nameEl: HTMLElement | null;
+  private readonly pointsEl: HTMLElement | null;
+  private readonly topupBtn: HTMLElement | null;
   private readonly accountActionBtn: HTMLButtonElement | null;
 
   private readonly authService: P2RAuthService;
@@ -34,10 +36,28 @@ export class LoginModal {
 
     this.badgeEl = document.getElementById('lobby-account-badge');
     this.nameEl = document.getElementById('lobby-account-name');
+    this.pointsEl = document.getElementById('lobby-account-points');
+    this.topupBtn = document.getElementById('btn-topup-points');
     this.accountActionBtn = document.getElementById('btn-open-login') as HTMLButtonElement | null;
 
     this.setupListeners();
     this.updateAccountBar();
+  }
+
+  public setPoints(points: number | null): void {
+    const isLoggedIn = this.identityProvider.isLoggedIn();
+    if (this.pointsEl) {
+      if (!isLoggedIn) {
+        this.pointsEl.style.display = 'none';
+      } else {
+        const val = points !== null ? points : 0;
+        this.pointsEl.textContent = `🪙 ${val} PTS`;
+        this.pointsEl.style.display = 'inline-block';
+      }
+    }
+    if (this.topupBtn) {
+      this.topupBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
   }
 
   public setOnAuthChanged(cb: () => void): void {
@@ -79,6 +99,14 @@ export class LoginModal {
 
     if (this.nameEl) {
       this.nameEl.textContent = isLoggedIn ? identity.nickname : 'Guest Operative (Offline)';
+    }
+
+    if (this.pointsEl) {
+      this.pointsEl.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
+
+    if (this.topupBtn) {
+      this.topupBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
     }
 
     if (this.accountActionBtn) {
