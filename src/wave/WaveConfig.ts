@@ -23,13 +23,13 @@ export interface BossScaledStats {
  * Calculates number of regular enemies for a given wave.
  * Uses a soft cap to prevent overwhelming enemy counts in later waves.
  * Wave 1: initialEnemies (3)
- * Wave 2: 3 + 1 = 4
- * Wave 3: 3 + 2 = 5, etc., capped at max 22 enemies.
+ * Wave 2: 3 + 2 = 5
+ * Wave 3: 3 + 4 = 7, etc., capped at max 30 enemies.
  */
 export function getWaveEnemyCount(waveNumber: number, config: WaveConfig): number {
   const waveIndex = Math.max(0, waveNumber - 1);
   const calculated = config.initialEnemies + waveIndex * config.additionalEnemiesPerWave;
-  const maxCap = 22; // Reasonable ceiling for single player arena
+  const maxCap = 30; // Reasonable ceiling for single player arena
   return Math.min(maxCap, calculated);
 }
 
@@ -51,15 +51,17 @@ export function getWaveEnemyDamage(waveNumber: number, baseDamage: number, confi
 
 /**
  * Calculates how many bosses should spawn for a given boss encounter:
- * - Wave 5: 1 Boss (Introduction)
- * - Wave 10: 1 Boss (Empowered)
- * - Wave 15: 2 Bosses (Dual Warlords)
- * - Wave 20+: 2 Bosses (or 3 at Wave 25+)
+ * Increases by 1 boss per boss wave appearance:
+ * - Wave 5: 1 Boss
+ * - Wave 10: 2 Bosses
+ * - Wave 15: 3 Bosses
+ * - Wave 20: 4 Bosses
+ * - Wave 25: 5 Bosses, etc.
  */
-export function getBossCountForWave(waveNumber: number): number {
-  if (waveNumber >= 25) return 3;
-  if (waveNumber >= 15) return 2;
-  return 1;
+export function getBossCountForWave(waveNumber: number, bossConfig?: BossConfig): number {
+  const interval = bossConfig?.waveInterval ?? 5;
+  if (waveNumber < interval) return 0;
+  return Math.max(1, Math.floor(waveNumber / interval));
 }
 
 /**

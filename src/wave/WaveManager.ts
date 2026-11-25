@@ -150,7 +150,7 @@ export class WaveManager {
     this.spawnIntervalTimer = 0; // Trigger first batch immediately
 
     const isBoss = isBossWave(waveNumber, this.bossConfig);
-    this.targetBossCount = isBoss ? getBossCountForWave(waveNumber) : 0;
+    this.targetBossCount = isBoss ? getBossCountForWave(waveNumber, this.bossConfig) : 0;
 
     if (this.callbacks.onWaveStarted) {
       this.callbacks.onWaveStarted(waveNumber, isBoss, count);

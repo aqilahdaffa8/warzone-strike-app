@@ -247,13 +247,13 @@ export const GAME_CONFIG: GameConfig = {
   },
   wave: {
     totalWaves: 999999, // Endless waves without ceiling
-    initialEnemies: 3, // Wave 1: 3 enemies (balanced early progression)
-    additionalEnemiesPerWave: 1, // +1 enemy per wave for smooth, fair progression
+    initialEnemies: 3, // Wave 1: 3 enemies
+    additionalEnemiesPerWave: 2, // +2 enemies per wave
     hpScaling: 0.06, // +6% enemy HP per wave (rewarding headshots and accurate aim)
     damageScaling: 0.05, // +5% enemy damage per wave
     intermissionDuration: 10.0, // 10s intermission between waves (airdrop collection window)
     minSpawnDistance: 20.0, // 20m minimum spawn distance from player
-    maxActiveEnemies: 8, // Maximum 8 active enemies concurrently to prevent claustrophobic swarming
+    maxActiveEnemies: 10, // Maximum 10 active enemies concurrently in the arena
     spawnInterval: 1.0, // 1.0s interval between spawning queued enemies
   },
   boss: {

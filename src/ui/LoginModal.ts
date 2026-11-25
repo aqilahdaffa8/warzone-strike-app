@@ -18,6 +18,7 @@ export class LoginModal {
   private readonly authService: P2RAuthService;
   private readonly identityProvider: P2RPlayerIdentityProvider;
   private onAuthChangedCallback?: () => void;
+  private onDismissCallback?: () => void;
 
   constructor(authService: P2RAuthService, identityProvider: P2RPlayerIdentityProvider) {
     this.authService = authService;
@@ -41,6 +42,10 @@ export class LoginModal {
 
   public setOnAuthChanged(cb: () => void): void {
     this.onAuthChangedCallback = cb;
+  }
+
+  public setOnDismiss(cb: () => void): void {
+    this.onDismissCallback = cb;
   }
 
   public open(): void {
@@ -105,6 +110,9 @@ export class LoginModal {
     if (this.cancelBtn) {
       this.cancelBtn.addEventListener('click', () => {
         this.close();
+        if (this.onDismissCallback) {
+          this.onDismissCallback();
+        }
       });
     }
 
@@ -143,6 +151,9 @@ export class LoginModal {
       this.onAuthChangedCallback();
     }
     this.close();
+    if (this.onDismissCallback) {
+      this.onDismissCallback();
+    }
   }
 
   private setLoading(loading: boolean): void {

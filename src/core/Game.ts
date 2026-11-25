@@ -30,6 +30,7 @@ import { P2RLeaderboardClient } from '../leaderboard/P2RLeaderboardClient';
 import { QueueSubmissionResult, ScoreSubmissionQueue } from '../leaderboard/ScoreSubmissionQueue';
 import { LoginModal } from '../ui/LoginModal';
 import { LeaderboardModal } from '../ui/LeaderboardModal';
+import { LoadingScreen } from '../ui/LoadingScreen';
 import { ScorePayload } from '../scoring/ScoreManager';
 import { audio } from '../audio/AudioManager';
 import { UPGRADE_CONFIG, UpgradeKind, UpgradeSteps } from '../config/upgradeConfig';
@@ -60,6 +61,8 @@ export class Game {
   private readonly scoreSubmissionQueue: ScoreSubmissionQueue;
   private readonly loginModal: LoginModal;
   private readonly leaderboardModal: LeaderboardModal;
+  private readonly loadingScreen: LoadingScreen;
+  private isInitialFlowActive: boolean = true;
   private currentScorePayload: ScorePayload | null = null;
   private hasRetriedPendingScoresOnStartup: boolean = false;
   private activeWeaponType: WeaponType = 'sniper';
@@ -171,6 +174,7 @@ export class Game {
       // Auth state updated in LoginModal; no active run disruption needed.
     });
     this.leaderboardModal = new LeaderboardModal(this.leaderboardClient);
+    this.loadingScreen = new LoadingScreen();
     this.scoreManager.onScoreChanged = (score, delta, reason) => {
       this.hud.updateScore(score, delta, reason);
     };
@@ -300,9 +304,12 @@ export class Game {
           this.hud.showBossBar(boss.bossTitle, boss.getHp(), boss.getMaxHp());
         },
         onBossDefeated: () => {
-          // If no more bosses active in wave, hide boss bar
-          if (this.waveManager.getActiveBosses().length === 0) {
+          const remainingBosses = this.waveManager.getActiveBosses();
+          if (remainingBosses.length === 0) {
             this.hud.hideBossBar();
+          } else {
+            const nextBoss = remainingBosses[0];
+            this.hud.showBossBar(nextBoss.bossTitle, nextBoss.getHp(), nextBoss.getMaxHp());
           }
         },
       }
@@ -1247,6 +1254,7 @@ export class Game {
    * Returns player to main lobby / menu overlay after Game Over or mission completion.
    */
   public returnToLobby(): void {
+    this.isInitialFlowActive = false;
     this.resetRunState();
     this.hud.hide();
 
@@ -1293,7 +1301,9 @@ export class Game {
       case 'MENU':
         audio.setDuck(false);
         audio.setMusic('calm');
-        if (this.startOverlay) this.startOverlay.style.display = 'flex';
+        if (this.startOverlay) {
+          this.startOverlay.style.display = this.isInitialFlowActive ? 'none' : 'flex';
+        }
         this.pauseMenu.hide();
         this.gameOverScreen.hide();
         this.hud.hide();
@@ -1380,12 +1390,36 @@ export class Game {
     if (this.isRunning) return;
     this.isRunning = true;
     this.clock.start();
+
+    // Hide start overlay initially during loading and login flow
+    if (this.startOverlay) {
+      this.startOverlay.style.display = 'none';
+    }
+
     this.setState('MENU');
+    if (this.isInitialFlowActive && this.startOverlay) {
+      this.startOverlay.style.display = 'none';
+    }
+
     if (!this.hasRetriedPendingScoresOnStartup) {
       this.hasRetriedPendingScoresOnStartup = true;
       void this.retryPendingScoresOnStartup();
     }
     this.loop();
+
+    // Flow 1: Loading screen with Progress Bar (0% - 100%)
+    void this.loadingScreen.startLoading(2200).then(() => {
+      // Flow 2: Once 100%, show Login Modal (with Login & Sync, and Continue as Guest)
+      this.loginModal.open();
+    });
+
+    // Flow 3: Once user completes login or clicks "Continue as Guest", show index page
+    this.loginModal.setOnDismiss(() => {
+      this.isInitialFlowActive = false;
+      if (this.startOverlay) {
+        this.startOverlay.style.display = 'flex';
+      }
+    });
   }
 
   public stop(): void {
