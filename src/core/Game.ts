@@ -97,7 +97,6 @@ export class Game {
 
   private readonly startOverlay: HTMLElement | null;
   private readonly startBtn: HTMLButtonElement | null;
-  private readonly topupBtn: HTMLButtonElement | null;
   private readonly lobbyEntryMsgEl: HTMLElement | null;
   private isDeductingEntryCoins: boolean = false;
 
@@ -418,17 +417,8 @@ export class Game {
 
     this.startOverlay = document.querySelector<HTMLElement>('#start-overlay');
     this.startBtn = document.querySelector<HTMLButtonElement>('#btn-start-game');
-    this.topupBtn = document.querySelector<HTMLButtonElement>('#btn-topup-points');
     this.lobbyEntryMsgEl = document.querySelector<HTMLElement>('#lobby-entry-msg');
     this.updateLobbyStartButton();
-
-    if (this.topupBtn) {
-      this.topupBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.topupPoints(100);
-      });
-    }
 
     const lobbyLeaderboardBtn = document.querySelector<HTMLButtonElement>('#btn-open-leaderboard');
     if (lobbyLeaderboardBtn) {
@@ -906,7 +896,7 @@ export class Game {
         return Math.max(0, parseInt(stored, 10) || 0);
       }
     } catch (_) {}
-    return 0; // Default starts at 0 PTS
+    return 0; // Default starts at 0 COINS
   }
 
   public savePlayerPoints(points: number): void {
@@ -915,17 +905,6 @@ export class Game {
       window.localStorage.setItem('warzone-strike:player-points:v1', String(val));
     } catch (_) {}
     this.loginModal.setPoints(val);
-  }
-
-  public topupPoints(amount: number = 100): void {
-    const current = this.getPlayerPoints();
-    const updated = current + amount;
-    this.savePlayerPoints(updated);
-    if (this.lobbyEntryMsgEl) {
-      this.lobbyEntryMsgEl.style.display = 'none';
-      this.lobbyEntryMsgEl.textContent = '';
-    }
-    this.hud.showToast(`🪙 +${amount} Points added! Total: ${updated} PTS`, 'info', 3000);
   }
 
   public async enterGame(): Promise<void> {
@@ -965,12 +944,12 @@ export class Game {
   public updateLobbyStartButton(): void {
     if (!this.startBtn) return;
     const isLoggedIn = this.identityProvider.isLoggedIn();
-    this.startBtn.textContent = isLoggedIn ? 'CLICK TO ENTER ARENA (100 PTS)' : 'CLICK TO ENTER ARENA';
+    this.startBtn.textContent = isLoggedIn ? 'CLICK TO ENTER ARENA (100 COINS)' : 'CLICK TO ENTER ARENA';
     this.startBtn.disabled = false;
   }
 
   private async deductEntryCoinsAndValidate(): Promise<boolean> {
-    // Guest players do NOT require PTS to play (free play for guests)
+    // Guest players do NOT require COINS to play (free play for guests)
     if (!this.identityProvider.isLoggedIn()) {
       if (this.lobbyEntryMsgEl) {
         this.lobbyEntryMsgEl.style.display = 'none';
@@ -983,10 +962,10 @@ export class Game {
 
     const currentPoints = this.getPlayerPoints();
 
-    // STRICT CHECK FOR LOGGED IN USERS: IF CURRENT POINTS < 100, BLOCK ENTRY COMPLETELY!
+    // STRICT CHECK FOR LOGGED IN USERS: IF CURRENT COINS < 100, BLOCK ENTRY COMPLETELY!
     if (currentPoints < 100) {
       if (this.lobbyEntryMsgEl) {
-        this.lobbyEntryMsgEl.textContent = '⚠️ Poin tidak cukup! Butuh 100 PTS untuk bermain.';
+        this.lobbyEntryMsgEl.textContent = '⚠️ Coin tidak cukup! Butuh 100 COINS untuk bermain.';
         this.lobbyEntryMsgEl.className = 'login-status-msg error';
         this.lobbyEntryMsgEl.style.display = 'block';
       }
@@ -997,7 +976,7 @@ export class Game {
     this.isDeductingEntryCoins = true;
     if (this.startBtn) {
       this.startBtn.disabled = true;
-      this.startBtn.textContent = 'VERIFYING 100 PTS...';
+      this.startBtn.textContent = 'VERIFYING 100 COINS...';
     }
     if (this.lobbyEntryMsgEl) {
       this.lobbyEntryMsgEl.style.display = 'none';
@@ -1029,7 +1008,7 @@ export class Game {
         this.savePlayerPoints(currentPoints - 100);
       }
 
-      this.hud.showToast(`🪙 100 Points deducted! Sisa saldo: ${this.getPlayerPoints()} PTS`, 'info', 3500);
+      this.hud.showToast(`🪙 100 COINS deducted! Remaining balance: ${this.getPlayerPoints()} COINS`, 'info', 3500);
       return true;
     } catch (err) {
       console.warn('[Game] Error deducting entry coins:', err);

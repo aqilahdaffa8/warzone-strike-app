@@ -16,7 +16,7 @@ export class MockLeaderboardClient implements LeaderboardClient {
       return {
         success: false,
         insufficientCoins: true,
-        message: `⚠️ Poin tidak cukup! Butuh ${amount} PTS untuk bermain.`,
+        message: `⚠️ Coin tidak cukup! Butuh ${amount} COINS untuk bermain.`,
       };
     }
     this.mockBalance -= amount;
@@ -24,7 +24,7 @@ export class MockLeaderboardClient implements LeaderboardClient {
       success: true,
       amount,
       balanceAfter: this.mockBalance,
-      message: `Berhasil memotong ${amount} poin token masuk game.`,
+      message: `Successfully deducted ${amount} coins to start the game.`,
     };
   }
 

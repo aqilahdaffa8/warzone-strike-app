@@ -222,7 +222,7 @@ export class P2RLeaderboardClient implements LeaderboardClient {
           success: false,
           insufficientCoins: isInsufficient,
           message: isInsufficient
-            ? `⚠️ Poin tidak cukup! Butuh ${amount} PTS untuk bermain.`
+            ? `⚠️ Coin tidak cukup! Butuh ${amount} COINS untuk bermain.`
             : errorMsg,
         };
       }
@@ -231,7 +231,7 @@ export class P2RLeaderboardClient implements LeaderboardClient {
         success: true,
         amount: resData.data?.transaction?.amount ?? amount,
         balanceAfter: resData.data?.transaction?.balance_after,
-        message: `Berhasil memotong ${amount} poin untuk memulai game.`,
+        message: `Successfully deducted ${amount} coins to start the game.`,
       };
     } catch (err: unknown) {
       console.warn('[P2RLeaderboardClient] Error executing spendCoins:', err);

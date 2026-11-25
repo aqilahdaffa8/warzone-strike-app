@@ -164,12 +164,12 @@ export interface ScoreConfig {
 }
 
 export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
-  regularKill: 100,
-  enemyKill: 100,
-  headshotBonus: 50,
-  bossKill: 10,
-  bossHeadshotScore: 12,
-  bossHeadshotBonus: 2,
+  regularKill: 5,
+  enemyKill: 5,
+  headshotBonus: 2,
+  bossKill: 20,
+  bossHeadshotScore: 25,
+  bossHeadshotBonus: 5,
   waveClearMultiplier: 0,
   waveClearBonus: 0,
 };
